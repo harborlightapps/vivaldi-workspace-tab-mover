@@ -1,0 +1,26 @@
+# Strumenti e cartelle locali
+.claude/
+graphify-out/
+CLAUDE.md
+
+# Documenti interni / privati (restano sul disco, non vanno nel repository pubblico)
+Claude-Vivaldi Mod for Workspace project*.md
+Storico Sessione Share del Progetto Vivaldi MOD.md
+Storico-Sessioni.md
+
+# File locali di lavoro
+Vivaldi Workspace MOD.bat
+Vivaldi Workspace MOD.lnk
+Vivaldi_Workspace_MOD_Icons/
+Vivaldi_Workspace_MOD_Icons.zip
+
+# Temporanei e di build
+*.tmp
+*.wsmod.tmp
+*.log
+*.bak
+bin/
+obj/
+release/
+Thumbs.db
+desktop.ini
