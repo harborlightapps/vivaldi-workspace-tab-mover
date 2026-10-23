@@ -1,8 +1,8 @@
 **Nota / Note**
 
-C'è **un'unica cartella/zip** che contiene sia `Install.bat`/`Install.exe` sia `Uninstall.bat`/`Uninstall.exe` fianco a fianco: sono due comandi indipendenti a un click ciascuno. Versione 1.1.0. Feedback: [Issues](https://github.com/milt983/vivaldi-workspace-tab-mover/issues) · [Discussions](https://github.com/milt983/vivaldi-workspace-tab-mover/discussions).
+C'è **un'unica cartella/zip** che contiene sia `Install.bat`/`Install.exe` sia `Uninstall.bat`/`Uninstall.exe` fianco a fianco: sono due comandi indipendenti a un click ciascuno. Versione 1.2.0 (menu in inglese e italiano). Feedback: [Issues](https://github.com/milt983/vivaldi-workspace-tab-mover/issues) · [Discussions](https://github.com/milt983/vivaldi-workspace-tab-mover/discussions).
 
-There is **one single folder/zip** containing both `Install.bat`/`Install.exe` and `Uninstall.bat`/`Uninstall.exe` side by side: two independent one-click commands. Version 1.1.0. Feedback: [Issues](https://github.com/milt983/vivaldi-workspace-tab-mover/issues) · [Discussions](https://github.com/milt983/vivaldi-workspace-tab-mover/discussions).
+There is **one single folder/zip** containing both `Install.bat`/`Install.exe` and `Uninstall.bat`/`Uninstall.exe` side by side: two independent one-click commands. Version 1.2.0 (English and Italian menu). Feedback: [Issues](https://github.com/milt983/vivaldi-workspace-tab-mover/issues) · [Discussions](https://github.com/milt983/vivaldi-workspace-tab-mover/discussions).
 
 ---
 # ITALIANO
@@ -32,25 +32,27 @@ Vivaldi MOD for Workspace\
 ## 1. Installazione
 
 1. Doppio click su **Install.bat** oppure **Install.exe** (fanno la stessa cosa, vedi sopra).
-2. Si apre una finestra nera (terminale). Quando chiede:
-   `Percorso cartella Application di Vivaldi (es. H:\Vivaldi Standalone\Application):`
-   scrivi (o incolla) il percorso della cartella **Application** della tua installazione Vivaldi e premi Invio.
+2. Si apre una finestra nera (terminale) con domande **bilingui**. Prima chiede
+   `Vivaldi "Application" folder path / Percorso cartella "Application" di Vivaldi (e.g. H:\Vivaldi Standalone\Application):`
+   scrivi (o incolla) il percorso della cartella **Application** della tua installazione Vivaldi e premi Invio (se il percorso è sbagliato te lo dice e puoi riprovare, fino a 3 volte).
    - Installazione Standalone/Portable: `<unità>:\Vivaldi Standalone\Application` (es. `H:\Vivaldi Standalone\Application`)
    - Installazione normale: `C:\Users\<tuo-utente>\AppData\Local\Vivaldi\Application`
-3. Attendi il messaggio verde `=== Installazione completata con successo ===`.
+   Poi chiede la lingua: `Language / Lingua: 1) English  2) Italiano`. Digita **1** o **2** e premi Invio; **Invio da solo = lingua rilevata automaticamente dall'interfaccia di Vivaldi** (inglese se non è italiano). Se la mod era già installata, viene proposta la lingua scelta l'ultima volta (Invio la conferma).
+3. Attendi il messaggio verde `=== Installazione completata con successo ===` (o `=== Installation completed successfully ===` se hai scelto English).
 4. Premi un tasto qualsiasi per chiudere la finestra.
 5. Fatto. Apri Vivaldi dal suo shortcut abituale (Desktop o Start Menu):
    - **Tasto destro semplice** su una tab nel pannello "Windows and Tabs" → menu nativo di Vivaldi, invariato (New Tab, Duplicate, Pin, Close, ecc.).
-   - **Maiusc (Shift) + tasto destro** sulla stessa tab → menu del mod **"Sposta nel Workspace"**.
+   - **Maiusc (Shift) + tasto destro** sulla stessa tab → menu del mod **"Sposta nel Workspace"** (o **"Move to Workspace"** in inglese).
 
 **Spostare più tab insieme (anche NON consecutive)**: nel pannello "Windows and Tabs" seleziona le tab che vuoi con **Ctrl+click** (singole, anche sparse) oppure **Shift+click** (intervallo). Poi fai **Maiusc+tasto destro su una delle tab selezionate**: il menu mostra "Sposta N tab nel Workspace" e sposta **solo le tab che hai scelto** (non quelle in mezzo), in un solo click. La selezione sullo schermo resta esattamente quella che hai fatto: Vivaldi di solito la allargherebbe a intervallo con Maiusc+tasto destro, la mod gli impedisce di farlo per quel gesto. Se invece fai Maiusc+tasto destro su una tab che non fa parte della selezione, sposta solo quella tab.
 
+**Lingua del menu**: il menu esiste in **English** e **Italiano**. La lingua iniziale è quella scelta all'installazione (o, con Invio, quella rilevata dall'interfaccia di Vivaldi). Per cambiarla: **Maiusc + tasto destro** su una tab → l'**ultima riga** del menu dice `Lingua: English / Italiano ✓` (o `Language: English ✓ / Italiano`). Clicca una lingua per passare subito a quella (un clic altrove sulla riga passa all'altra). Cliccare la riga **non sposta nessuna tab** e **non cambia la selezione**. La scelta viene ricordata anche dopo aver chiuso e riaperto Vivaldi e dopo gli aggiornamenti di Vivaldi (il watcher non la tocca). **Precedenza**: la scelta fatta nel browser vale più di quella fatta all'installazione (che vale solo come lingua iniziale); reinstallare scegliendo una lingua *diversa* conta come nuova scelta e vale una volta.
 Cosa succede dietro le quinte: i file del mod vengono copiati in `%LocalAppData%\VivaldiWSMod\`; il tag `<script>` viene iniettato in `window.html`; tutti gli shortcut Vivaldi trovati (Desktop/Start Menu, utente e tutti gli utenti) vengono riscritti per passare da un controllo automatico prima di aprire Vivaldi; inoltre parte un piccolo programma nascosto (il *watcher*) che si riavvia da solo a ogni login (voce `HKCU\...\Run`, **non servono diritti di amministratore**) e rimette la mod dopo ogni aggiornamento di Vivaldi.
 
 ## 2. Manutenzione (automatica, zero click)
 
 Non devi fare nulla. Dopo ogni aggiornamento di Vivaldi la mod torna da sola, **senza reinstallare e senza riavviare Windows**:
-- Il *watcher* (un piccolo programma nascosto, senza finestre né icone) resta in attesa. Quando l'aggiornatore di Vivaldi crea la nuova cartella versione, aspetta che `window.html` sia completo e che nessuno lo stia più scrivendo, poi rimette il tag `<script>` e il file `move-workspace-panel.js`. Di solito succede **mentre l'aggiornamento è ancora in corso**, quindi già alla prima riapertura di Vivaldi la mod c'è.
+- Il *watcher* (un piccolo programma nascosto, senza finestre né icone) resta in attesa. Quando l'aggiornatore di Vivaldi crea la nuova cartella versione, aspetta che `window.html` sia completo e che nessuno lo stia più scrivendo, poi rimette il tag `<script>`, il file `move-workspace-panel.js` e il suo piccolo file di configurazione della lingua (`move-workspace-panel.config.json`). Di solito succede **mentre l'aggiornamento è ancora in corso**, quindi già alla prima riapertura di Vivaldi la mod c'è.
 - Costo: praticamente zero (nessun controllo continuo: si sveglia solo quando compare una cartella nuova, più un controllo di sicurezza ogni 30 minuti). Occupa qualche decina di MB di memoria.
 - Scrive in modo sicuro (file temporaneo + sostituzione, backup `window.html.bak`), non duplica mai il tag e lascia com'è la cartella della versione vecchia.
 - Se qualcosa non funziona, c'è un piccolo log (si ruota da solo): `%LocalAppData%\VivaldiWSMod\logs\ws-mod.log`.
@@ -60,15 +62,15 @@ Non devi fare nulla. Dopo ogni aggiornamento di Vivaldi la mod torna da sola, **
 
 ## Windows SmartScreen / antivirus, requisiti, limiti
 
-- **SmartScreen**: gli `.exe` non sono firmati digitalmente, Windows può mostrare un avviso ("Windows ha protetto il PC"). Puoi usare `Install.bat`/`Uninstall.bat` (stessa cosa, testo leggibile) o leggere il sorgente in `exe-source\` (gli `.exe` avviano solo `Install-Mod.ps1`/`Uninstall-Mod.ps1`). SHA256 di `Install.exe`: `EA3C88865D059B8D48948A42EAE580E652886AFF255E303CDC9ED7819F9F1CCA`; di `Uninstall.exe`: `CFEB353B8FD94EF8BCEED5DEE1B3A6268F916D58A90A77B0964EC841DDCA4B03`. Lo SHA256 dello zip è nelle note della Release su GitHub.
+- **SmartScreen**: gli `.exe` non sono firmati digitalmente, Windows può mostrare un avviso ("Windows ha protetto il PC"). Puoi usare `Install.bat`/`Uninstall.bat` (stessa cosa, testo leggibile) o leggere il sorgente in `exe-source\` (dalla v1.2.0 gli `.exe` sono lanciatori minuscoli, 5 KB, che avviano solo `Install-Mod.ps1`/`Uninstall-Mod.ps1`). SHA256 di `Install.exe`: `207C6C729C5274C141159BC15BBD4082E7AABEADCBA50420DFEDE8BB9C36A0BD`; di `Uninstall.exe`: `CF9B0063512AFECA03E6AE5FFE09AD20D822704BB6BE2D807747BCD2E6E4D2B3`. Lo SHA256 dello zip è nelle note della Release su GitHub.
 - **Requisiti**: Windows con PowerShell 5.1 (incluso), nessun amministratore; Vivaldi Standalone/Portable o normale. Provato su Windows 11.
-- **Non testato**: altre versioni di Vivaldi oltre 8.1.x/8.2.x, installazioni "normali" di recente, Windows 10, e un aggiornamento reale di Vivaldi osservato dal vivo (verificato solo con simulazione e sul log di un aggiornamento precedente).
+- **Non testato**: la rilevazione della lingua è stata verificata con Vivaldi in inglese e in italiano su un profilo di prova (l'impostazione esatta del tuo Vivaldi non è stata ispezionata); altre versioni di Vivaldi oltre 8.1.x/8.2.x, installazioni "normali" di recente, Windows 10, e un aggiornamento reale di Vivaldi osservato dal vivo (verificato solo con simulazione e sul log di un aggiornamento precedente).
 
 ## 3. Disinstallazione
 
 1. Nella stessa cartella, doppio click su **Uninstall.bat** oppure **Uninstall.exe** (fanno la stessa cosa).
 2. Inserisci lo stesso percorso della cartella Application usato in installazione.
-3. Quando chiede `Continuare? (S/N)`, digita **S** e premi Invio.
+3. Quando chiede `Continuare? (S/N)` (o `Continue? (Y/N)`), digita **S** (o **Y**) e premi Invio. (Se premi Invio al percorso viene usato quello registrato all'installazione.)
 4. Attendi `=== Disinstallazione completata con successo ===`.
    - Se compare invece un avviso giallo su una cartella non completamente rimovibile: non è un errore bloccante. Il mod è già disinstallato e gli shortcut già ripristinati a quel punto; devi solo chiudere eventuali programmi che tengono occupata `%LocalAppData%\VivaldiWSMod` e cancellarla a mano.
 5. Premi un tasto per chiudere la finestra.
@@ -104,26 +106,27 @@ Vivaldi MOD for Workspace\
 ## 1. Installation
 
 1. Double-click **Install.bat** or **Install.exe** (identical, see above).
-2. A black terminal window opens. When prompted:
-   `Percorso cartella Application di Vivaldi (es. H:\Vivaldi Standalone\Application):`
-   type (or paste) the path to your Vivaldi installation's **Application** folder and press Enter.
+2. A black terminal window opens with **bilingual** questions. First it asks
+   `Vivaldi "Application" folder path / Percorso cartella "Application" di Vivaldi (e.g. H:\Vivaldi Standalone\Application):`
+   type (or paste) the path to your Vivaldi installation's **Application** folder and press Enter (a wrong path is reported and you can retry, up to 3 times).
    - Standalone/Portable install: `<drive>:\Vivaldi Standalone\Application` (e.g. `H:\Vivaldi Standalone\Application`)
    - Regular install: `C:\Users\<your-user>\AppData\Local\Vivaldi\Application`
-3. Wait for the green `=== Installazione completata con successo ===` message.
+   Then it asks the language: `Language / Lingua: 1) English  2) Italiano`. Type **1** or **2** and press Enter; **Enter alone = the language is detected automatically from Vivaldi's interface language** (English if it is not Italian). If the mod was already installed, the language you chose last time is proposed (Enter confirms it).
+3. Wait for the green `=== Installation completed successfully ===` message (or `=== Installazione completata con successo ===` if you chose Italiano).
 4. Press any key to close the window.
 5. Done. Open Vivaldi from its usual shortcut (Desktop or Start Menu):
    - **Plain right-click** on a tab in the "Windows and Tabs" panel → Vivaldi's native menu, unchanged (New Tab, Duplicate, Pin, Close, etc.).
-   - **Shift + right-click** on the same tab → the mod's **"Sposta nel Workspace"** menu.
-   - Note: the installer/uninstaller messages and the mod's menu labels are currently in Italian ("Sposta nel Workspace" = "Move to Workspace", "Sposta N tab nel Workspace" = "Move N tabs to Workspace", "Continuare? (S/N)" = "Continue? (Y/N)"). English labels are an open request.
+   - **Shift + right-click** on the same tab → the mod's **"Move to Workspace"** menu (**"Sposta nel Workspace"** in Italian).
 
-**Moving multiple tabs at once (even NON-consecutive ones)**: in the "Windows and Tabs" panel pick the tabs you want with **Ctrl+click** (individual, even scattered) or **Shift+click** (range). Then **Shift+right-click on one of the selected tabs**: the menu shows "Sposta N tab nel Workspace" and moves **only the tabs you picked** (not the ones in between) in one click. The selection on screen stays exactly as you made it: Vivaldi would normally extend it to a range on Shift+right-click, and the mod stops it from doing so for that gesture. Shift+right-clicking a tab that is not part of the selection moves only that tab.
+**Moving multiple tabs at once (even NON-consecutive ones)**: in the "Windows and Tabs" panel pick the tabs you want with **Ctrl+click** (individual, even scattered) or **Shift+click** (range). Then **Shift+right-click on one of the selected tabs**: the menu shows "Move N tabs to Workspace" and moves **only the tabs you picked** (not the ones in between) in one click. The selection on screen stays exactly as you made it: Vivaldi would normally extend it to a range on Shift+right-click, and the mod stops it from doing so for that gesture. Shift+right-clicking a tab that is not part of the selection moves only that tab.
 
+**Menu language**: the menu exists in **English** and **Italiano**. The initial language is the one chosen at install time (or, with Enter, the one detected from Vivaldi's interface language). To change it: **Shift+right-click** a tab → the **last row** of the menu reads `Language: English ✓ / Italiano` (or `Lingua: English / Italiano ✓`). Click a language to switch to it immediately (clicking elsewhere on the row switches to the other one). Clicking the row **does not move any tab** and **does not change the selection**. The choice is remembered after closing and reopening Vivaldi and after Vivaldi updates (the watcher never touches it). **Precedence**: the choice made in the browser wins over the one made at install time (which only sets the initial language); reinstalling and picking a *different* language counts as a new choice and applies once.
 Under the hood: mod files are copied to `%LocalAppData%\VivaldiWSMod\`; the `<script>` tag is injected into `window.html`; every Vivaldi shortcut found (Desktop/Start Menu, current user and all users) is rewritten to run through an automatic check before Vivaldi opens; a small hidden program (the *watcher*) is also started, restarts itself at every login (`HKCU\...\Run` entry, **no administrator rights needed**) and puts the mod back after every Vivaldi update.
 
 ## 2. Maintenance (automatic, zero clicks)
 
 Nothing to do. After every Vivaldi update the mod comes back by itself, **without reinstalling and without restarting Windows**:
-- The *watcher* (a small hidden program, no windows or tray icon) waits quietly. When Vivaldi's updater creates the new version folder, it waits until `window.html` is complete and nobody is writing to it any more, then puts the `<script>` tag and `move-workspace-panel.js` back. This usually happens **while the update is still running**, so the mod is already there the first time you reopen Vivaldi.
+- The *watcher* (a small hidden program, no windows or tray icon) waits quietly. When Vivaldi's updater creates the new version folder, it waits until `window.html` is complete and nobody is writing to it any more, then puts the `<script>` tag, `move-workspace-panel.js` and its small language-config file (`move-workspace-panel.config.json`) back. This usually happens **while the update is still running**, so the mod is already there the first time you reopen Vivaldi.
 - Cost: practically zero (no continuous polling: it only wakes up when a new folder appears, plus a safety check every 30 minutes). It uses a few tens of MB of memory.
 - Writes are safe (temporary file + replace, `window.html.bak` backup), the tag is never duplicated, and the old version folder is left as is.
 - If something does not work there is a small self-rotating log: `%LocalAppData%\VivaldiWSMod\logs\ws-mod.log`.
@@ -133,15 +136,15 @@ Nothing to do. After every Vivaldi update the mod comes back by itself, **withou
 
 ## Windows SmartScreen / antivirus, requirements, limits
 
-- **SmartScreen**: the `.exe` files are not code-signed, Windows may show a warning ("Windows protected your PC"). You can use `Install.bat`/`Uninstall.bat` (same thing, readable text) or read the source in `exe-source\` (the `.exe` files only run `Install-Mod.ps1`/`Uninstall-Mod.ps1`). SHA256 of `Install.exe`: `EA3C88865D059B8D48948A42EAE580E652886AFF255E303CDC9ED7819F9F1CCA`; of `Uninstall.exe`: `CFEB353B8FD94EF8BCEED5DEE1B3A6268F916D58A90A77B0964EC841DDCA4B03`. The zip's SHA256 is in the Release notes on GitHub.
+- **SmartScreen**: the `.exe` files are not code-signed, Windows may show a warning ("Windows protected your PC"). You can use `Install.bat`/`Uninstall.bat` (same thing, readable text) or read the source in `exe-source\` (since v1.2.0 the `.exe` files are tiny 5 KB thin launchers that only run `Install-Mod.ps1`/`Uninstall-Mod.ps1`). SHA256 of `Install.exe`: `207C6C729C5274C141159BC15BBD4082E7AABEADCBA50420DFEDE8BB9C36A0BD`; of `Uninstall.exe`: `CF9B0063512AFECA03E6AE5FFE09AD20D822704BB6BE2D807747BCD2E6E4D2B3`. The zip's SHA256 is in the Release notes on GitHub.
 - **Requirements**: Windows with PowerShell 5.1 (built in), no administrator; Vivaldi Standalone/Portable or regular. Tested on Windows 11.
-- **Not tested**: Vivaldi versions other than 8.1.x/8.2.x, "regular" installs recently, Windows 10, and a real Vivaldi update observed live (verified only via simulation and against the log of a previous update).
+- **Not tested**: language detection was verified with Vivaldi in English and in Italian on a test profile (the exact setting of your own Vivaldi was not inspected); Vivaldi versions other than 8.1.x/8.2.x, "regular" installs recently, Windows 10, and a real Vivaldi update observed live (verified only via simulation and against the log of a previous update).
 
 ## 3. Uninstallation
 
 1. In the same folder, double-click **Uninstall.bat** or **Uninstall.exe** (identical).
 2. Enter the same Application folder path used during installation.
-3. When asked `Continuare? (S/N)`, type **S** (Yes) and press Enter.
+3. When asked `Continue? (Y/N)` (or `Continuare? (S/N)`), type **Y** (or **S**) and press Enter. (Pressing Enter at the path prompt uses the one registered at install time.)
 4. Wait for `=== Disinstallazione completata con successo ===`.
    - If a yellow warning appears instead about a folder that couldn't be fully removed: this is not a blocking error. The mod is already uninstalled and shortcuts already restored at that point; just close any program holding `%LocalAppData%\VivaldiWSMod` open and delete it manually.
 5. Press any key to close the window.

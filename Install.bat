@@ -1,13 +1,8 @@
 @echo off
 setlocal
-
-echo ============================================================
-echo   Installer Mod "Sposta nel Workspace" - Vivaldi
-echo ============================================================
-echo.
-set /p VROOT="Percorso cartella Application di Vivaldi (es. H:\Vivaldi Standalone\Application): "
-
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Install-Mod.ps1" -VivaldiAppRoot "%VROOT%"
-
+rem Vivaldi Workspace Tab Mover - thin launcher / lanciatore sottile.
+rem All questions (folder path, language) are asked by Install-Mod.ps1 (bilingual).
+rem Tutte le domande (percorso, lingua) le fa Install-Mod.ps1 (bilingue).
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Install-Mod.ps1"
 echo.
 pause

@@ -1,7 +1,7 @@
 #requires -Version 5.1
 <#
 .SYNOPSIS
-    Installer unico per il mod "Sposta nel Workspace" di Vivaldi.
+    Installer / Installatore - Vivaldi Workspace Tab Mover (v1.2.0).
 .DESCRIPTION
     Modulo 3. Punto di ingresso a click singolo:
       - Se il mod non e' presente/funzionante nella versione Vivaldi corrente, lo installa.
@@ -20,17 +20,27 @@
     Richiede in <cartella dello script>\payload\ i file sorgente:
       move-workspace-panel.js, Mod-Common.ps1, Watcher-Core.ps1,
       Watcher-Daemon.ps1, Start-Daemon.vbs, Vivaldi-Launch.vbs
+    Le domande sono bilingui (percorso della cartella Application e lingua).
+    Lingua (RICHIESTA-006): English / Italiano / auto (rilevata dall'interfaccia
+    di Vivaldi, inglese se non riconosciuta). Scritta in move-workspace-panel.config.json
+    accanto al file della mod; la scelta fatta dal menu nel browser vale di piu'.
 .PARAMETER VivaldiAppRoot
     Percorso della cartella "Application" dell'installazione Vivaldi da modificare,
     es. "H:\Vivaldi Standalone\Application" oppure
         "C:\Users\<utente>\AppData\Local\Vivaldi\Application".
+    Se omesso, lo chiede lo script.
+.PARAMETER Language
+    en | it | auto. Se omesso, lo chiede lo script (Invio = valore proposto).
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File Install-Mod.ps1 -VivaldiAppRoot "H:\Vivaldi Standalone\Application"
+    powershell -ExecutionPolicy Bypass -File Install-Mod.ps1
+    powershell -ExecutionPolicy Bypass -File Install-Mod.ps1 -VivaldiAppRoot "H:\Vivaldi Standalone\Application" -Language en
 #>
 
 param(
-    [Parameter(Mandatory = $true)]
-    [string]$VivaldiAppRoot,
+    [string]$VivaldiAppRoot = '',
+
+    [ValidateSet('', 'auto', 'en', 'it')]
+    [string]$Language = '',
 
     # Solo per i test automatici: non registra l'avvio al login e non avvia il watcher.
     [switch]$NoAutostart
@@ -40,9 +50,39 @@ $ErrorActionPreference = 'Stop'
 
 . (Join-Path $PSScriptRoot 'payload\Mod-Common.ps1')
 
+# Lingua dei messaggi dell'installer: 'en' o 'it'. Prima della scelta: lingua di Windows.
+$script:UiLang = if ([Globalization.CultureInfo]::CurrentUICulture.Name -match '^it') { 'it' } else { 'en' }
+function L {
+    param([string]$En, [string]$It)
+    if ($script:UiLang -eq 'it') { return $It } else { return $En }
+}
+
 function Write-Step {
     param([string]$Message)
     Write-Host "[Install-Mod] $Message"
+}
+
+# Si chiede sempre (anche con input rediretto: a fine input ReadLine ritorna vuoto e valgono i valori proposti).
+function Test-CanPrompt {
+    return $true
+}
+
+function Read-Line {
+    param([string]$Prompt)
+    Write-Host -NoNewline $Prompt
+    try { $r = [Console]::ReadLine(); if ($null -eq $r) { return '' } else { return $r } } catch { return '' }
+}
+
+# Controlla un percorso Application. Ritorna $null se valido, altrimenti il motivo (bilingue).
+function Test-VivaldiAppRoot {
+    param([string]$Path)
+    if ([string]::IsNullOrWhiteSpace($Path)) { return 'No path entered. / Nessun percorso inserito.' }
+    if (-not (Test-Path -LiteralPath $Path -PathType Container)) { return "Folder not found / Cartella non trovata: '$Path'" }
+    if (-not (Test-Path -LiteralPath (Join-Path $Path 'vivaldi.exe'))) { return "vivaldi.exe not found in / non trovato in: '$Path' (is it the ""Application"" folder? / e' la cartella ""Application""?)" }
+    $vf = Get-VersionFolders -AppRoot $Path | Select-Object -First 1
+    if (-not $vf) { return "No Vivaldi version folder under / Nessuna cartella versione sotto: '$Path'" }
+    if (-not (Test-Path -LiteralPath (Join-Path $vf.FullName 'resources\vivaldi\window.html'))) { return "window.html not found / non trovato in '$($vf.Name)\resources\vivaldi'" }
+    return $null
 }
 
 function Get-LatestVersionFolder {
@@ -86,44 +126,83 @@ try {
     $ScriptTag = '<script src="move-workspace-panel.js"></script>'
 
     # ============================================================
-    # FASE 1 - Validazione input
+    # FASE 1 - Domande (bilingui) e validazione input
     # ============================================================
-    Write-Step "Verifica installazione Vivaldi in '$VivaldiAppRoot'..."
+    $canPrompt = Test-CanPrompt
+    Write-Host ''
+    Write-Host '============================================================'
+    Write-Host '  Vivaldi Workspace Tab Mover - Installer / Installatore'
+    Write-Host '============================================================'
+    Write-Host ''
 
-    if (-not (Test-Path $VivaldiAppRoot)) {
-        throw "Cartella Application non trovata: '$VivaldiAppRoot'"
+    # 1a) percorso della cartella Application
+    $pathProblem = $null
+    if ($VivaldiAppRoot) {
+        $pathProblem = Test-VivaldiAppRoot -Path $VivaldiAppRoot
+        if ($pathProblem) { throw $pathProblem }
+    } else {
+        if (-not $canPrompt) { throw 'No -VivaldiAppRoot given and no interactive input. / Nessun -VivaldiAppRoot e nessun input interattivo.' }
+        for ($try = 1; $try -le 3; $try++) {
+            $entered = (Read-Line 'Vivaldi "Application" folder path / Percorso cartella "Application" di Vivaldi (e.g. H:\Vivaldi Standalone\Application): ').Trim().Trim('"')
+            $pathProblem = Test-VivaldiAppRoot -Path $entered
+            if (-not $pathProblem) { $VivaldiAppRoot = $entered; break }
+            Write-Host "  ! $pathProblem" -ForegroundColor Yellow
+            if ($try -lt 3) { Write-Host '    Try again / Riprova.' -ForegroundColor Yellow }
+        }
+        if ($pathProblem) { throw "Invalid path after 3 attempts. / Percorso non valido dopo 3 tentativi. ($pathProblem)" }
     }
+
+    # 1b) lingua: valore proposto = quello gia' scelto in una precedente installazione, altrimenti auto
+    $ModRootForConfig = Get-ModRoot
+    $configPath = Join-Path (Join-Path $ModRootForConfig 'payload') $script:ConfigName
+    $existingCfg = $null
+    if (Test-Path -LiteralPath $configPath) { try { $existingCfg = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json } catch { $existingCfg = $null } }
+    $defaultLang = if ($existingCfg -and $existingCfg.lang -in @('en', 'it', 'auto')) { [string]$existingCfg.lang } else { 'auto' }
+    $defaultLabel = switch ($defaultLang) { 'en' { 'English' } 'it' { 'Italiano' } default { 'auto-detect from Vivaldi interface / rileva dall''interfaccia di Vivaldi' } }
+    $chosenLang = $Language
+    if (-not $chosenLang) {
+        if ($canPrompt) {
+            Write-Host ''
+            Write-Host 'Language / Lingua:'
+            Write-Host '  1) English'
+            Write-Host '  2) Italiano'
+            Write-Host "  Enter = $defaultLabel"
+            for ($try = 1; $try -le 3 -and -not $chosenLang; $try++) {
+                $ans = (Read-Line '> ').Trim()
+                switch -Regex ($ans) {
+                    '^$'                         { $chosenLang = $defaultLang }
+                    '^(1|en|english)$'           { $chosenLang = 'en' }
+                    '^(2|it|italiano|italian)$'  { $chosenLang = 'it' }
+                    default { Write-Host '  Please type 1, 2 or Enter. / Digita 1, 2 oppure Invio.' -ForegroundColor Yellow }
+                }
+            }
+            if (-not $chosenLang) { $chosenLang = $defaultLang }
+        } else {
+            $chosenLang = $defaultLang
+        }
+    }
+    # lingua dei messaggi successivi
+    $script:UiLang = switch ($chosenLang) { 'en' { 'en' } 'it' { 'it' } default { $script:UiLang } }
+
+    Write-Step (L "Checking Vivaldi installation in '$VivaldiAppRoot'..." "Verifica installazione Vivaldi in '$VivaldiAppRoot'...")
 
     $vivaldiExe = Join-Path $VivaldiAppRoot 'vivaldi.exe'
-    if (-not (Test-Path $vivaldiExe)) {
-        throw "vivaldi.exe non trovato in '$VivaldiAppRoot'. Percorso non valido."
-    }
-
     $versionFolder = Get-LatestVersionFolder -AppRoot $VivaldiAppRoot
-    if (-not $versionFolder) {
-        throw "Nessuna cartella versione trovata sotto '$VivaldiAppRoot'."
-    }
-
     $resourcesDir = Join-Path $versionFolder.FullName 'resources\vivaldi'
     $windowHtml   = Join-Path $resourcesDir 'window.html'
     $targetJs     = Join-Path $resourcesDir 'move-workspace-panel.js'
 
-    if (-not (Test-Path $windowHtml)) {
-        throw "window.html non trovato in '$resourcesDir'. Struttura Vivaldi inattesa."
-    }
-
     foreach ($f in @($SourceJs, $SourceWatcher, $SourceLauncher, $SourceCommon, $SourceDaemon, $SourceDaemonVbs)) {
         if (-not (Test-Path $f)) {
-            throw "File sorgente mancante: '$f'. Esegui Install-Mod.ps1 dalla cartella del pacchetto completo (con la sottocartella 'payload')."
+            throw (L "Missing source file: '$f'. Run Install-Mod.ps1 from the full package folder (with the 'payload' subfolder)." "File sorgente mancante: '$f'. Esegui Install-Mod.ps1 dalla cartella del pacchetto completo (con la sottocartella 'payload').")
         }
     }
 
-    Write-Step "OK - versione Vivaldi rilevata: $($versionFolder.Name)"
-
+    Write-Step (L "OK - Vivaldi version detected: $($versionFolder.Name)" "OK - versione Vivaldi rilevata: $($versionFolder.Name)")
     # ============================================================
     # FASE 2 - Distribuzione file in %LocalAppData%\VivaldiWSMod\
     # ============================================================
-    Write-Step "Distribuzione file mod in '$ModRoot'..."
+    Write-Step (L "Copying mod files to '$ModRoot'..." "Distribuzione file mod in '$ModRoot'...")
 
     foreach ($dir in @($ModRoot, $PayloadDir, $ScriptsDir, $LogDir)) {
         if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
@@ -136,12 +215,20 @@ try {
     Copy-Item -Path $SourceDaemon -Destination (Join-Path $ScriptsDir 'Watcher-Daemon.ps1') -Force
     Copy-Item -Path $SourceDaemonVbs -Destination (Join-Path $ScriptsDir 'Start-Daemon.vbs') -Force
 
-    Write-Step "OK - payload e script distribuiti in '$ModRoot'."
+    # File di configurazione della lingua (copia master): il watcher lo copia accanto al JS
+    # in ogni versione di Vivaldi. "rev" cambia solo se la lingua scelta e' DIVERSA da quella
+    # gia' installata (cosi' reinstallare con Invio non cancella la scelta fatta nel browser).
+    $rev = 1
+    if ($existingCfg -and $null -ne $existingCfg.rev) { $rev = [int]$existingCfg.rev; if ([string]$existingCfg.lang -ne $chosenLang) { $rev++ } }
+    $cfgJson = (@{ lang = $chosenLang; rev = $rev } | ConvertTo-Json -Compress)
+    [IO.File]::WriteAllText((Join-Path $PayloadDir $script:ConfigName), $cfgJson, (New-Object Text.UTF8Encoding($false)))
+
+    Write-Step (L "OK - payload and scripts copied to '$ModRoot' (language: $chosenLang)." "OK - payload e script distribuiti in '$ModRoot' (lingua: $chosenLang).")
 
     # ============================================================
     # FASE 3 - Installazione/verifica immediata del mod nella versione corrente
     # ============================================================
-    Write-Step "Verifica/installazione mod nella versione corrente di Vivaldi..."
+    Write-Step (L "Checking/installing the mod in the current Vivaldi version..." "Verifica/installazione mod nella versione corrente di Vivaldi...")
 
     $masterJs = Join-Path $PayloadDir 'move-workspace-panel.js'
 
@@ -149,15 +236,15 @@ try {
     # atomica, backup window.html.bak creato una sola volta.
     $repairResult = Repair-VersionFolder -VersionFolder $versionFolder -MasterJs $masterJs
     switch -Wildcard ($repairResult) {
-        'repaired' { Write-Step "Mod installato/ripristinato in '$resourcesDir'." }
-        'ok'       { Write-Step "Mod gia' presente e aggiornato: nessuna modifica necessaria alla versione corrente." }
-        default    { throw "Installazione del mod nella versione corrente non riuscita: $repairResult" }
+        'repaired' { Write-Step (L "Mod installed/restored in '$resourcesDir'." "Mod installato/ripristinato in '$resourcesDir'.") }
+        'ok'       { Write-Step (L "Mod already present and up to date: no change needed in the current version." "Mod gia' presente e aggiornato: nessuna modifica necessaria alla versione corrente.") }
+        default    { throw (L "Installing the mod in the current version failed: $repairResult" "Installazione del mod nella versione corrente non riuscita: $repairResult") }
     }
 
     # ============================================================
     # FASE 4 - Riscrittura shortcut Vivaldi (Desktop / Start Menu)
     # ============================================================
-    Write-Step "Ricerca shortcut Vivaldi da aggiornare..."
+    Write-Step (L "Looking for Vivaldi shortcuts to update..." "Ricerca shortcut Vivaldi da aggiornare...")
 
     $wshShell     = New-Object -ComObject WScript.Shell
     $launcherPath = Join-Path $ScriptsDir 'Vivaldi-Launch.vbs'
@@ -191,7 +278,7 @@ try {
             }
             $backupEntries = @($flatEntries)
         } catch {
-            Write-Step "ATTENZIONE: manifest shortcut esistente illeggibile, ne creo uno nuovo."
+            Write-Step (L "WARNING: existing shortcut manifest unreadable, creating a new one." "ATTENZIONE: manifest shortcut esistente illeggibile, ne creo uno nuovo.")
             $backupEntries = @()
         }
     }
@@ -244,9 +331,9 @@ try {
                 $shortcut.Save()
 
                 $updatedCount++
-                Write-Step "Shortcut aggiornato: '$($lnk.FullName)'"
+                Write-Step (L "Shortcut updated: '$($lnk.FullName)'" "Shortcut aggiornato: '$($lnk.FullName)'")
             } catch {
-                Write-Step ("ATTENZIONE: impossibile elaborare '" + $lnk.FullName + "': " + $_.Exception.Message)
+                Write-Step ((L "WARNING: cannot process '" "ATTENZIONE: impossibile elaborare '") + $lnk.FullName + "': " + $_.Exception.Message)
             }
         }
     }
@@ -254,9 +341,9 @@ try {
     $backupEntries | ConvertTo-Json -Depth 4 | Set-Content -Path $ShortcutsBackupFile -Encoding UTF8
 
     if ($updatedCount -eq 0) {
-        Write-Step "Nessuno shortcut da aggiornare (gia' aggiornati o nessuno trovato)."
+        Write-Step (L "No shortcut to update (already updated or none found)." "Nessuno shortcut da aggiornare (gia' aggiornati o nessuno trovato).")
     } else {
-        Write-Step "OK - $updatedCount shortcut aggiornati."
+        Write-Step (L "OK - $updatedCount shortcut(s) updated." "OK - $updatedCount shortcut aggiornati.")
     }
 
     # ============================================================
@@ -267,10 +354,11 @@ try {
     # al login (HKCU Run, nessun amministratore) e subito adesso.
     Add-ModRoot -AppRoot $appRootFull
 
-    if ($NoAutostart) {
-        Write-Step "Avvio automatico saltato (-NoAutostart)."
+    # (con VIVALDI_WSMOD_ROOT impostata - solo test automatici - non si tocca mai la voce Run reale)
+    if ($NoAutostart -or $env:VIVALDI_WSMOD_ROOT) {
+        Write-Step (L "Autostart skipped (-NoAutostart)." "Avvio automatico saltato (-NoAutostart).")
     } else {
-        Write-Step "Attivazione del ripristino automatico dopo gli aggiornamenti..."
+        Write-Step (L "Enabling automatic restore after Vivaldi updates..." "Attivazione del ripristino automatico dopo gli aggiornamenti...")
         $startVbs = Join-Path $ScriptsDir 'Start-Daemon.vbs'
         $wscriptForRun = Join-Path $env:WINDIR 'System32\wscript.exe'
         $runKey   = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
@@ -287,18 +375,19 @@ try {
             if (@(Get-ModDaemonProcesses).Count -gt 0) { $up = $true; break }
         }
         if ($up) {
-            Write-Step "OK - watcher in background attivo (si riavvia da solo a ogni login)."
+            Write-Step (L "OK - background watcher active (restarts by itself at every login)." "OK - watcher in background attivo (si riavvia da solo a ogni login).")
         } else {
-            Write-Step "ATTENZIONE: watcher non partito ora; partira' al prossimo login."
+            Write-Step (L "WARNING: watcher did not start now; it will start at the next login." "ATTENZIONE: watcher non partito ora; partira' al prossimo login.")
         }
     }
     Write-Host ""
-    Write-Host "=== Installazione completata con successo ===" -ForegroundColor Green
+    Write-Host (L "=== Installation completed successfully ===" "=== Installazione completata con successo ===") -ForegroundColor Green
+    Write-Host (L "Language: $chosenLang. You can change it from the mod's menu (Shift+right-click on a tab) at any time." "Lingua: $chosenLang. Puoi cambiarla in qualsiasi momento dal menu della mod (Maiusc + tasto destro su una tab).")
     exit 0
 
 } catch {
     Write-Host ""
-    Write-Host "=== ERRORE: installazione non completata ===" -ForegroundColor Red
+    Write-Host (L "=== ERROR: installation not completed ===" "=== ERRORE: installazione non completata ===") -ForegroundColor Red
     Write-Host $_.Exception.Message -ForegroundColor Red
     exit 1
 }

@@ -1,108 +1,78 @@
-// Install.exe - punto di ingresso a doppio click per il mod "Sposta nel Workspace".
+// Install.exe - thin double-click launcher / lanciatore sottile a doppio click.
 //
-// Cosa fa, in ordine:
-//   1. Stampa un'intestazione e chiede all'utente il percorso della cartella
-//      "Application" della sua installazione Vivaldi (stessa domanda che fa
-//      gia' Install.bat).
-//   2. Cerca "Install-Mod.ps1" nella STESSA cartella in cui si trova questo
-//      .exe (il motore di installazione vero e proprio: script PowerShell
-//      esistente, non toccato/modificato da questo programma).
-//   3. Lo lancia con "powershell.exe -File Install-Mod.ps1 -VivaldiAppRoot <percorso>",
-//      lasciando la console condivisa cosi' l'utente vede in diretta l'output
-//      dello script (identico a quello che si vede lanciando Install.bat).
-//   4. Attende la fine, mostra il codice di uscita e aspetta un tasto prima
-//      di chiudersi, cosi' la finestra non sparisce subito e l'utente puo'
-//      leggere l'esito.
+// Vivaldi Workspace Tab Mover v1.2.0.
 //
-// Nota per chi mantiene questo codice: la logica di installazione VERA vive
-// tutta in Install-Mod.ps1 (PowerShell). Questo eseguibile e' solo un
-// lanciatore nativo che sostituisce Install.bat con un'esperienza a doppio
-// click piu' "da programma" (icona propria, nessuna finestra nera generica
-// del prompt dei comandi in stile batch); non duplica e non ripete nessuna
-// delle regole di business del mod.
+// Launches Install-Mod.ps1 (in the SAME folder as this .exe) with Windows PowerShell and
+// waits for it. ALL the questions (folder path, language, confirmation) are asked
+// by the script itself, in English and Italian: this program contains no logic of
+// the mod and no text to translate besides the final prompt below.
+// Avvia Install-Mod.ps1 (nella STESSA cartella di questo .exe) con Windows PowerShell e
+// attende. TUTTE le domande (percorso, lingua, conferma) le fa lo script, in
+// inglese e italiano: qui non c'e' nessuna logica della mod.
+//
+// Written in C# 5 on purpose: it compiles both with the C# compiler that ships
+// with Windows (csc.exe, .NET Framework 4.x - no SDK install needed, see
+// README-ricompilazione.md) and with dotnet publish.
 
+using System;
 using System.Diagnostics;
+using System.IO;
 
-namespace VivaldiWsMod.Installer;
-
-internal static class Program
+namespace VivaldiWsMod.Installer
 {
-    private static int Main()
+    internal static class Program
     {
-        Console.WriteLine("============================================================");
-        Console.WriteLine("  Installer Mod \"Sposta nel Workspace\" - Vivaldi");
-        Console.WriteLine("============================================================");
-        Console.WriteLine();
-
-        Console.Write("Percorso cartella Application di Vivaldi (es. H:\\Vivaldi Standalone\\Application): ");
-        string? vivaldiAppRoot = Console.ReadLine();
-
-        if (string.IsNullOrWhiteSpace(vivaldiAppRoot))
+        private static int Main()
         {
-            Console.WriteLine();
-            Console.WriteLine("ERRORE: nessun percorso inserito. Installazione annullata.");
-            return Pause(1);
-        }
+            string dir = AppDomain.CurrentDomain.BaseDirectory;
+            string script = Path.Combine(dir, "Install-Mod.ps1");
 
-        // Cartella in cui si trova questo eseguibile: e' li' che deve trovarsi
-        // anche Install-Mod.ps1 (pacchetto completo, non spostato/spezzato).
-        string exeDir = AppContext.BaseDirectory;
-        string engineScript = Path.Combine(exeDir, "Install-Mod.ps1");
-
-        if (!File.Exists(engineScript))
-        {
-            Console.WriteLine();
-            Console.WriteLine("ERRORE: 'Install-Mod.ps1' non trovato accanto a Install.exe.");
-            Console.WriteLine("Assicurati che Install.exe sia nella cartella del pacchetto completo");
-            Console.WriteLine("(insieme a Install-Mod.ps1 e alla sottocartella 'payload').");
-            return Pause(1);
-        }
-
-        var startInfo = new ProcessStartInfo
-        {
-            FileName = "powershell.exe",
-            UseShellExecute = false,
-            // Nessuna redirezione degli stream: la console resta condivisa con
-            // il processo figlio, esattamente come quando Install.bat lancia
-            // powershell.exe direttamente. L'utente vede l'output in diretta.
-        };
-        startInfo.ArgumentList.Add("-NoProfile");
-        startInfo.ArgumentList.Add("-ExecutionPolicy");
-        startInfo.ArgumentList.Add("Bypass");
-        startInfo.ArgumentList.Add("-File");
-        startInfo.ArgumentList.Add(engineScript);
-        startInfo.ArgumentList.Add("-VivaldiAppRoot");
-        startInfo.ArgumentList.Add(vivaldiAppRoot);
-
-        int exitCode;
-        try
-        {
-            using Process? process = Process.Start(startInfo);
-            if (process is null)
+            if (!File.Exists(script))
             {
                 Console.WriteLine();
-                Console.WriteLine("ERRORE: impossibile avviare powershell.exe.");
+                Console.WriteLine("ERROR / ERRORE: 'Install-Mod.ps1' not found next to this program / non trovato accanto a questo programma.");
+                Console.WriteLine("Keep the .exe in the full package folder / Tieni l'.exe nella cartella del pacchetto completo.");
                 return Pause(1);
             }
 
-            process.WaitForExit();
-            exitCode = process.ExitCode;
+            var startInfo = new ProcessStartInfo();
+            startInfo.FileName = "powershell.exe";
+            startInfo.Arguments = "-NoProfile -ExecutionPolicy Bypass -File \"" + script + "\"";
+            startInfo.UseShellExecute = false;
+            // No stream redirection: the console is shared, so the user sees the
+            // script output live (same as running the .bat file).
+
+            int exitCode;
+            try
+            {
+                using (Process process = Process.Start(startInfo))
+                {
+                    if (process == null)
+                    {
+                        Console.WriteLine();
+                        Console.WriteLine("ERROR / ERRORE: cannot start / impossibile avviare powershell.exe.");
+                        return Pause(1);
+                    }
+                    process.WaitForExit();
+                    exitCode = process.ExitCode;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine();
+                Console.WriteLine("ERROR / ERRORE: " + ex.Message);
+                return Pause(1);
+            }
+
+            return Pause(exitCode);
         }
-        catch (Exception ex)
+
+        private static int Pause(int exitCode)
         {
             Console.WriteLine();
-            Console.WriteLine("ERRORE IMPREVISTO: " + ex.Message);
-            return Pause(1);
+            Console.Write("Press Enter to close / Premi Invio per chiudere...");
+            try { Console.ReadLine(); } catch (Exception) { }
+            return exitCode;
         }
-
-        return Pause(exitCode);
-    }
-
-    private static int Pause(int exitCode)
-    {
-        Console.WriteLine();
-        Console.Write("Premi Invio per chiudere...");
-        Console.ReadLine();
-        return exitCode;
     }
 }

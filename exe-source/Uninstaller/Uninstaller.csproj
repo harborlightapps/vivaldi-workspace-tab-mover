@@ -16,11 +16,11 @@
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
 
     <AssemblyTitle>Vivaldi WS-Mod Uninstaller</AssemblyTitle>
-    <Product>Vivaldi Mod - Sposta nel Workspace</Product>
-    <Version>1.0.0.0</Version>
-    <FileVersion>1.0.0.0</FileVersion>
+    <Product>Vivaldi Workspace Tab Mover</Product>
+    <Version>1.2.0.0</Version>
+    <FileVersion>1.2.0.0</FileVersion>
     <Company>Michele</Company>
-    <Description>Disinstaller del mod "Sposta nel Workspace" per Vivaldi</Description>
+    <Description>Thin launcher of the Vivaldi Workspace Tab Mover uninstaller (runs the PowerShell script next to it)</Description>
   </PropertyGroup>
 
 </Project>

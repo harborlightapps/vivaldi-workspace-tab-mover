@@ -1,13 +1,8 @@
 @echo off
 setlocal
-
-echo ============================================================
-echo   Disinstaller Mod "Sposta nel Workspace" - Vivaldi
-echo ============================================================
-echo.
-set /p VROOT="Percorso cartella Application di Vivaldi (es. H:\Vivaldi Standalone\Application): "
-
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Uninstall-Mod.ps1" -VivaldiAppRoot "%VROOT%"
-
+rem Vivaldi Workspace Tab Mover - thin launcher / lanciatore sottile.
+rem All questions (folder path, confirmation) are asked by Uninstall-Mod.ps1 (bilingual).
+rem Tutte le domande (percorso, conferma) le fa Uninstall-Mod.ps1 (bilingue).
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Uninstall-Mod.ps1"
 echo.
 pause

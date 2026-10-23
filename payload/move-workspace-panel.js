@@ -84,6 +84,120 @@
   }
 
   // ----------------------------------------------------------------------
+  // Lingua / Language (RICHIESTA-006). Tutte le stringhe visibili stanno qui.
+  //
+  // Dati reali (Vivaldi 8.2.4133.91, profilo di prova, 23/10/2026):
+  //   - la lingua dell'interfaccia di Vivaldi si legge con
+  //     chrome.i18n.getUILanguage() ("en-US", "it"): segue --lang e il valore
+  //     intl.app_locale salvato da Vivaldi. NON si usa navigator.language
+  //     (con intl.app_locale=it dava ancora "en-US") ne' le lingue accettate.
+  //   - localStorage NON e' disponibile in questo contesto (e' null);
+  //     chrome.storage.local si' e sopravvive a chiusura/riapertura.
+  //   - la cartella della mod e' leggibile con fetch() (file di configurazione
+  //     scritto dall'installer: lingua iniziale + numero di revisione).
+  // Precedenza: la scelta fatta dal menu nel browser vale piu' di quella
+  // dell'installer, che vale solo come lingua iniziale; una NUOVA scelta
+  // all'installazione (revisione diversa) vale una volta. Senza nessuna
+  // scelta: lingua rilevata dall'interfaccia di Vivaldi, inglese se non
+  // riconosciuta.
+  // ----------------------------------------------------------------------
+  var STRINGS = {
+    en: {
+      moveOne: 'Move to Workspace',
+      moveMany: 'Move {n} tabs to Workspace',
+      noWorkspaces: 'No workspace found',
+      language: 'Language',
+      movedOne: '1 tab moved',
+      movedMany: '{n} tabs moved',
+      movedPartial: '{ok}/{n} tabs moved ({err} errors)'
+    },
+    it: {
+      moveOne: 'Sposta nel Workspace',
+      moveMany: 'Sposta {n} tab nel Workspace',
+      noWorkspaces: 'Nessun workspace trovato',
+      language: 'Lingua',
+      movedOne: '1 tab spostata',
+      movedMany: '{n} tab spostate',
+      movedPartial: '{ok}/{n} tab spostate ({err} errori)'
+    }
+  };
+  var LANG_NAMES = { en: 'English', it: 'Italiano' };
+  var LANG_ORDER = ['en', 'it'];
+  var CONFIG_FILE = 'move-workspace-panel.config.json';
+  var STORE_LANG_KEY = 'wsmodLang';
+  var STORE_REV_KEY = 'wsmodCfgRev';
+
+  function detectUiLanguage() {
+    try {
+      var l = (chrome.i18n && chrome.i18n.getUILanguage && chrome.i18n.getUILanguage()) || '';
+      return /^it([-_]|$)/i.test(l) ? 'it' : 'en';
+    } catch (e) { return 'en'; }
+  }
+
+  var currentLang = detectUiLanguage(); // valore sincrono iniziale; initLanguage() lo affina
+  var knownCfgRev = null;
+
+  function t(key, vars) {
+    var s = (STRINGS[currentLang] && STRINGS[currentLang][key]) || STRINGS.en[key] || key;
+    if (vars) Object.keys(vars).forEach(function (k) { s = s.split('{' + k + '}').join(String(vars[k])); });
+    return s;
+  }
+
+  function storeGet(cb) {
+    try {
+      if (!chrome.storage || !chrome.storage.local) { cb({}); return; }
+      chrome.storage.local.get([STORE_LANG_KEY, STORE_REV_KEY], function (v) {
+        if (chrome.runtime && chrome.runtime.lastError) { cb({}); return; }
+        cb(v || {});
+      });
+    } catch (e) { cb({}); }
+  }
+
+  function storeSet(lang, rev) {
+    try {
+      if (!chrome.storage || !chrome.storage.local) return;
+      var o = {};
+      o[STORE_LANG_KEY] = lang || null;
+      o[STORE_REV_KEY] = rev == null ? null : rev;
+      chrome.storage.local.set(o, function () { void (chrome.runtime && chrome.runtime.lastError); });
+    } catch (e) {}
+  }
+
+  function readConfig(cb) {
+    try {
+      fetch(new URL(CONFIG_FILE, document.baseURI).href, { cache: 'no-store' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) { cb(j && typeof j === 'object' ? j : null); })
+        .catch(function () { cb(null); });
+    } catch (e) { cb(null); }
+  }
+
+  function initLanguage() {
+    storeGet(function (st) {
+      readConfig(function (cfg) {
+        var explicit = (st[STORE_LANG_KEY] === 'en' || st[STORE_LANG_KEY] === 'it') ? st[STORE_LANG_KEY] : null;
+        var rev = st[STORE_REV_KEY] == null ? null : st[STORE_REV_KEY];
+        var cfgLang = cfg && (cfg.lang === 'en' || cfg.lang === 'it') ? cfg.lang : null;
+        if (cfg && cfg.rev != null && cfg.rev !== rev) {
+          // nuova scelta fatta all'installazione: vale come lingua iniziale (una volta)
+          explicit = cfgLang;
+          rev = cfg.rev;
+          storeSet(explicit, rev);
+        }
+        knownCfgRev = rev;
+        currentLang = explicit || detectUiLanguage();
+        log('language:', currentLang, explicit ? '(chosen)' : '(auto-detected from Vivaldi UI)');
+      });
+    });
+  }
+
+  function setLanguage(lang) {
+    if (!STRINGS[lang]) return;
+    currentLang = lang;
+    storeSet(lang, knownCfgRev);
+  }
+
+  // ----------------------------------------------------------------------
   // Selezione NON consecutiva (fix RICHIESTA-003).
   //
   // Dati reali (prova con Vivaldi 8.2.4133.91, 23/10/2026, vedi Bugtracker):
@@ -168,7 +282,7 @@
     gesture.timer = setTimeout(function () {
       if (gesture && !gesture.consumed) gesture = null;
     }, GESTURE_STALE_MS);
-    log('Shift+tasto destro: selezione prima del gesto =', JSON.stringify(ids), '(DOM ora', JSON.stringify(domIds) + ')');
+    log('Shift+right-click: selection before gesture =', JSON.stringify(ids), '(DOM now', JSON.stringify(domIds) + ')');
   }
 
   // Riga tab (id numerico) del pannello sotto un target, o null.
@@ -217,7 +331,7 @@
         blockEvent(e);
       }
     } catch (err) {
-      console.error('[WS-mod] ' + e.type + ' errore:', err);
+      console.error('[WS-mod] ' + e.type + ' error:', err);
     }
   }
 
@@ -233,7 +347,7 @@
           gesture = null;
         }
       } catch (err) {
-        console.error('[WS-mod] mousedown handler errore:', err);
+        console.error('[WS-mod] mousedown handler error:', err);
       }
     }, true);
 
@@ -256,11 +370,12 @@
         subtree: true, attributes: true, attributeFilter: ['aria-selected', 'data-selected']
       });
     } catch (e) {
-      console.error('[WS-mod] MutationObserver non disponibile:', e);
+      console.error('[WS-mod] MutationObserver not available:', e);
     }
   }
 
   startSelectionTracking();
+  initLanguage();
 
   log('ok');
 
@@ -271,7 +386,7 @@
     if (activeMenu) {
       activeMenu.remove();
       activeMenu = null;
-      document.removeEventListener('click', closeMenu, true);
+      document.removeEventListener('click', onDocClick, true);
       document.removeEventListener('keydown', onKeyDown, true);
       window.removeEventListener('scroll', closeMenu, true);
       window.removeEventListener('blur', closeMenu, true);
@@ -290,6 +405,13 @@
 
   function onKeyDown(e) {
     if (e.key === 'Escape') closeMenu();
+  }
+
+  // Un clic sulla riga della lingua non chiude il menu (lo ridisegna la riga stessa).
+  function onDocClick(e) {
+    if (activeMenu && e.target instanceof Node && activeMenu.contains(e.target) &&
+        e.target.closest && e.target.closest('[data-wsmod-lang-row]')) return;
+    closeMenu();
   }
 
   function getAllWorkspaces() {
@@ -345,7 +467,7 @@
       if (!chrome.tabs || typeof chrome.tabs.query !== 'function') { callback([]); return; }
       chrome.tabs.query({ highlighted: true, currentWindow: true }, function (tabs) {
         if (chrome.runtime && chrome.runtime.lastError) {
-          console.error('[WS-mod] tabs.query(highlighted) fallita:', chrome.runtime.lastError);
+          console.error('[WS-mod] tabs.query(highlighted) failed:', chrome.runtime.lastError);
           callback([]);
           return;
         }
@@ -355,7 +477,7 @@
         callback(ids);
       });
     } catch (e) {
-      console.error('[WS-mod] getSelectedTabIdsFromApi errore:', e);
+      console.error('[WS-mod] getSelectedTabIdsFromApi error:', e);
       callback([]);
     }
   }
@@ -373,14 +495,14 @@
       'box-shadow:0 4px 18px rgba(0,0,0,0.45);padding:4px 0;border:1px solid #444;';
 
     var header = document.createElement('div');
-    header.textContent = count > 1 ? ('Sposta ' + count + ' tab nel Workspace') : 'Sposta nel Workspace';
+    header.textContent = count > 1 ? t('moveMany', { n: count }) : t('moveOne');
     header.style.cssText = 'padding:6px 14px;font-weight:600;color:#9ab6ff;' +
       'border-bottom:1px solid #444;margin-bottom:2px;white-space:nowrap;';
     menu.appendChild(header);
 
     if (!workspaces.length) {
       var empty = document.createElement('div');
-      empty.textContent = 'Nessun workspace trovato';
+      empty.textContent = t('noWorkspaces');
       empty.style.cssText = 'padding:8px 14px;color:#999;font-style:italic;';
       menu.appendChild(empty);
     }
@@ -402,6 +524,34 @@
       menu.appendChild(item);
     });
 
+    // Riga della lingua (separata, in fondo). Cliccare una lingua la sceglie;
+    // cliccare altrove sulla riga passa all'altra. Non sposta tab e non
+    // tocca la selezione; il menu viene ridisegnato nella nuova lingua.
+    var langRow = document.createElement('div');
+    langRow.setAttribute('data-wsmod-lang-row', '1');
+    langRow.style.cssText = 'padding:6px 14px;margin-top:2px;border-top:1px solid #444;cursor:pointer;' +
+      'white-space:nowrap;color:#b9b9b9;';
+    langRow.appendChild(document.createTextNode(t('language') + ': '));
+    LANG_ORDER.forEach(function (code, i) {
+      if (i > 0) langRow.appendChild(document.createTextNode(' / '));
+      var opt = document.createElement('span');
+      opt.setAttribute('data-wsmod-lang', code);
+      opt.textContent = LANG_NAMES[code] + (code === currentLang ? ' \u2713' : '');
+      opt.style.cssText = code === currentLang ? 'color:#9ab6ff;font-weight:600;' : '';
+      langRow.appendChild(opt);
+    });
+    langRow.addEventListener('mouseenter', function () { langRow.style.background = '#3d3d3d'; });
+    langRow.addEventListener('mouseleave', function () { langRow.style.background = 'transparent'; });
+    langRow.addEventListener('click', function (ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      var picked = ev.target && ev.target.closest ? ev.target.closest('[data-wsmod-lang]') : null;
+      var next = picked ? picked.getAttribute('data-wsmod-lang') : LANG_ORDER[(LANG_ORDER.indexOf(currentLang) + 1) % LANG_ORDER.length];
+      setLanguage(next);
+      buildMenu(x, y, tabIds, currentWorkspaceId);
+    });
+    menu.appendChild(langRow);
+
     document.body.appendChild(menu);
 
     // Posizionamento con clamp ai bordi dello schermo
@@ -415,7 +565,7 @@
     activeMenu = menu;
 
     setTimeout(function () {
-      document.addEventListener('click', closeMenu, true);
+      document.addEventListener('click', onDocClick, true);
       document.addEventListener('keydown', onKeyDown, true);
       window.addEventListener('scroll', closeMenu, true);
       window.addEventListener('blur', closeMenu, true);
@@ -436,9 +586,9 @@
       done++;
       if (done < total) return;
       if (errors === 0) {
-        log(total + (total === 1 ? ' tab spostata' : ' tab spostate'));
+        log(total === 1 ? t('movedOne') : t('movedMany', { n: total }));
       } else {
-        console.error('[WS-mod] ' + (total - errors) + '/' + total + ' spostate (' + errors + ' errori)');
+        console.error('[WS-mod] ' + t('movedPartial', { ok: total - errors, n: total, err: errors }));
       }
     }
 
@@ -446,7 +596,7 @@
       try {
         chrome.tabs.get(tabId, function (tab) {
           if (chrome.runtime && chrome.runtime.lastError) {
-            console.error('[WS-mod] get fallito per tab', tabId, ':', chrome.runtime.lastError);
+            console.error('[WS-mod] get failed for tab', tabId, ':', chrome.runtime.lastError);
             finish(true);
             return;
           }
@@ -460,7 +610,7 @@
           });
         });
       } catch (e) {
-        console.error('[WS-mod] moveTabsToWorkspace errore per tab', tabId, ':', e);
+        console.error('[WS-mod] moveTabsToWorkspace error for tab', tabId, ':', e);
         finish(true);
       }
     });
@@ -509,7 +659,7 @@
         buildMenu(x, y, tabIds, wsId);
       });
     } catch (e) {
-      console.error('[WS-mod] getCurrentWorkspaceIdAndOpenMenu errore:', e);
+      console.error('[WS-mod] getCurrentWorkspaceIdAndOpenMenu error:', e);
       buildMenu(x, y, tabIds, null);
     }
   }
@@ -552,7 +702,7 @@
         if (g.ids) {
           var snapIds = g.ids;
           var chosen = (snapIds.length > 1 && snapIds.indexOf(tabId) !== -1) ? snapIds : [tabId];
-          log('menu su', chosen.length, 'tab (selezione', JSON.stringify(snapIds) + ', cliccata', tabId + ')');
+          log('menu for', chosen.length, 'tab(s) (selection', JSON.stringify(snapIds) + ', clicked', tabId + ')');
           getCurrentWorkspaceIdAndOpenMenu(chosen, clickX, clickY);
           return;
         }
@@ -575,7 +725,7 @@
         getCurrentWorkspaceIdAndOpenMenu(tabIds, clickX, clickY);
       });
     } catch (e) {
-      console.error('[WS-mod] contextmenu handler errore:', e);
+      console.error('[WS-mod] contextmenu handler error:', e);
       gesture = null;
     }
   }, true); // capture:true - necessario solo per intercettare il caso Shift+destro

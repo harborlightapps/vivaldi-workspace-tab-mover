@@ -10,6 +10,8 @@
 #>
 
 $script:ScriptTag = '<script src="move-workspace-panel.js"></script>'
+# File di configurazione della lingua (scritto dall'installer, copiato accanto al JS della mod).
+$script:ConfigName = 'move-workspace-panel.config.json'
 
 function Get-ModRoot {
     # VIVALDI_WSMOD_ROOT serve solo ai test automatici (cartella temporanea).
@@ -81,6 +83,8 @@ function Get-VersionState {
         ResourcesDir = $res
         WindowHtml = Join-Path $res 'window.html'
         TargetJs = Join-Path $res 'move-workspace-panel.js'
+        TargetConfig = Join-Path $res $script:ConfigName
+        ConfigOk = $true
         HasWindowHtml = $false
         TagOk = $false
         JsOk = $false
@@ -94,6 +98,14 @@ function Get-VersionState {
     }
     if ((Test-Path -LiteralPath $state.TargetJs) -and (Test-Path -LiteralPath $MasterJs)) {
         try { $state.JsOk = ((Get-FileSha256 $state.TargetJs) -eq (Get-FileSha256 $MasterJs)) } catch { }
+    }
+    # Configurazione lingua: se esiste la copia master, deve essere presente e identica.
+    $masterConfig = Join-Path (Split-Path $MasterJs -Parent) $script:ConfigName
+    if (Test-Path -LiteralPath $masterConfig) {
+        $state.ConfigOk = $false
+        if (Test-Path -LiteralPath $state.TargetConfig) {
+            try { $state.ConfigOk = ((Get-FileSha256 $state.TargetConfig) -eq (Get-FileSha256 $masterConfig)) } catch { }
+        }
     }
     [PSCustomObject]$state
 }
@@ -118,7 +130,7 @@ function Repair-VersionFolder {
     try {
         $st = Get-VersionState -VersionFolder $VersionFolder -MasterJs $MasterJs
         if (-not $st.HasWindowHtml) { return 'nowindowhtml' }
-        if ($st.TagOk -and $st.JsOk) { return 'ok' }
+        if ($st.TagOk -and $st.JsOk -and $st.ConfigOk) { return 'ok' }
 
         if ($RequireStable -and -not (Test-FileStable -Path $st.WindowHtml -MinAgeSeconds $StableAgeSeconds)) {
             return 'unstable'
@@ -127,12 +139,23 @@ function Repair-VersionFolder {
         $reasons = @()
         if (-not $st.JsOk)  { $reasons += 'js' }
         if (-not $st.TagOk) { $reasons += 'tag' }
+        if (-not $st.ConfigOk) { $reasons += 'config' }
 
         # 1) JS per primo: window.html non deve mai puntare a un file mancante.
         if (-not $st.JsOk) {
             $tmpJs = $st.TargetJs + '.wsmod.tmp'
             [IO.File]::Copy($MasterJs, $tmpJs, $true)
             Move-OverTarget -TempFile $tmpJs -Target $st.TargetJs
+        }
+
+        # 1b) configurazione della lingua (stessa cartella del JS). Il watcher NON la
+        # genera ne' la modifica: copia solo quella decisa dall'installer. La scelta
+        # fatta nel browser sta altrove (chrome.storage.local) e non viene toccata.
+        if (-not $st.ConfigOk) {
+            $masterConfig = Join-Path (Split-Path $MasterJs -Parent) $script:ConfigName
+            $tmpCfg = $st.TargetConfig + '.wsmod.tmp'
+            [IO.File]::Copy($masterConfig, $tmpCfg, $true)
+            Move-OverTarget -TempFile $tmpCfg -Target $st.TargetConfig
         }
 
         # 2) tag in window.html: scrittura su file temporaneo + sostituzione atomica.
