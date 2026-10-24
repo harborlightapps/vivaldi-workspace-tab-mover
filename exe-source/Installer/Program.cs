@@ -1,6 +1,6 @@
 // Install.exe - thin double-click launcher / lanciatore sottile a doppio click.
 //
-// Vivaldi Workspace Tab Mover v1.2.0.
+// Vivaldi Workspace Tab Mover v1.2.1.
 //
 // Launches Install-Mod.ps1 (in the SAME folder as this .exe) with Windows PowerShell and
 // waits for it. ALL the questions (folder path, language, confirmation) are asked

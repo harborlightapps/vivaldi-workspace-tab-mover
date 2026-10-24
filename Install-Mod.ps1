@@ -1,7 +1,7 @@
 #requires -Version 5.1
 <#
 .SYNOPSIS
-    Installer / Installatore - Vivaldi Workspace Tab Mover (v1.2.0).
+    Installer / Installatore - Vivaldi Workspace Tab Mover (v1.2.1).
 .DESCRIPTION
     Modulo 3. Punto di ingresso a click singolo:
       - Se il mod non e' presente/funzionante nella versione Vivaldi corrente, lo installa.
@@ -42,8 +42,12 @@ param(
     [ValidateSet('', 'auto', 'en', 'it')]
     [string]$Language = '',
 
-    # Solo per i test automatici: non registra l'avvio al login e non avvia il watcher.
-    [switch]$NoAutostart
+    # Solo per i test automatici: non registra l'avvio al login ne' l'attivita' e non avvia il watcher.
+    [switch]$NoAutostart,
+
+    # Ogni quanti minuti l'attivita' pianificata controlla che il watcher sia acceso (default 30; i test usano 1).
+    [ValidateRange(1, 1440)]
+    [int]$KeepaliveIntervalMinutes = 30
 )
 
 $ErrorActionPreference = 'Stop'
@@ -354,33 +358,45 @@ try {
     # al login (HKCU Run, nessun amministratore) e subito adesso.
     Add-ModRoot -AppRoot $appRootFull
 
-    # (con VIVALDI_WSMOD_ROOT impostata - solo test automatici - non si tocca mai la voce Run reale)
-    if ($NoAutostart -or $env:VIVALDI_WSMOD_ROOT) {
+    # (con VIVALDI_WSMOD_ROOT impostata - solo test automatici - non si tocca mai la voce Run reale
+    #  e l'attivita' pianificata ha un nome di prova)
+    if ($NoAutostart) {
         Write-Step (L "Autostart skipped (-NoAutostart)." "Avvio automatico saltato (-NoAutostart).")
     } else {
         Write-Step (L "Enabling automatic restore after Vivaldi updates..." "Attivazione del ripristino automatico dopo gli aggiornamenti...")
         $startVbs = Join-Path $ScriptsDir 'Start-Daemon.vbs'
         $wscriptForRun = Join-Path $env:WINDIR 'System32\wscript.exe'
-        $runKey   = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
-        $runValue = ('"{0}" //B "{1}"' -f $wscriptForRun, $startVbs)
-        Set-ItemProperty -Path $runKey -Name 'VivaldiWSMod' -Value $runValue
+        if (-not $env:VIVALDI_WSMOD_ROOT) {
+            $runKey   = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
+            $runValue = ('"{0}" //B "{1}"' -f $wscriptForRun, $startVbs)
+            Set-ItemProperty -Path $runKey -Name 'VivaldiWSMod' -Value $runValue
+        }
 
-        # Riavvia il watcher cosi' usa subito gli script appena copiati.
+        # Attivita' pianificata dell'utente (nessun amministratore): all'accesso e ogni N minuti
+        # riaccende il watcher se si e' spento (se e' acceso non fa nulla).
+        try {
+            $taskName = Register-ModKeepalive -VbsPath $startVbs -IntervalMinutes $KeepaliveIntervalMinutes
+            Write-Step (L "OK - scheduled task '$taskName' created (at login and every $KeepaliveIntervalMinutes min: restarts the watcher only if it is not running)." "OK - attivita' pianificata '$taskName' creata (all'accesso e ogni $KeepaliveIntervalMinutes min: riaccende il watcher solo se e' spento).")
+        } catch {
+            Write-Step ((L "WARNING: scheduled task not created: " "ATTENZIONE: attivita' pianificata non creata: ") + $_.Exception.Message)
+        }
+
+        # Riavvia il watcher cosi' usa subito gli script appena copiati; parte STACCATO (tramite Windows),
+        # non come figlio di questo programma.
         [void](Stop-ModDaemon)
         Start-Sleep -Milliseconds 500
-        Start-Process -FilePath $wscriptForRun -ArgumentList @('//B', ('"{0}"' -f $startVbs)) -WindowStyle Hidden
+        $how = Start-ModDaemonDetached -VbsPath $startVbs
         $up = $false
-        for ($i = 0; $i -lt 20; $i++) {
+        for ($i = 0; $i -lt 30; $i++) {
             Start-Sleep -Milliseconds 500
             if (@(Get-ModDaemonProcesses).Count -gt 0) { $up = $true; break }
         }
         if ($up) {
-            Write-Step (L "OK - background watcher active (restarts by itself at every login)." "OK - watcher in background attivo (si riavvia da solo a ogni login).")
+            Write-Step (L "OK - background watcher active, started detached ($how); it restarts by itself at every login and every $KeepaliveIntervalMinutes min if it ever stops." "OK - watcher in background attivo, avviato staccato ($how); si riavvia da solo a ogni accesso e ogni $KeepaliveIntervalMinutes min se si dovesse spegnere.")
         } else {
-            Write-Step (L "WARNING: watcher did not start now; it will start at the next login." "ATTENZIONE: watcher non partito ora; partira' al prossimo login.")
+            Write-Step (L "WARNING: watcher did not start now; the scheduled task or the next login will start it." "ATTENZIONE: watcher non partito ora; lo avviera' l'attivita' pianificata o il prossimo accesso.")
         }
-    }
-    Write-Host ""
+    }    Write-Host ""
     Write-Host (L "=== Installation completed successfully ===" "=== Installazione completata con successo ===") -ForegroundColor Green
     Write-Host (L "Language: $chosenLang. You can change it from the mod's menu (Shift+right-click on a tab) at any time." "Lingua: $chosenLang. Puoi cambiarla in qualsiasi momento dal menu della mod (Maiusc + tasto destro su una tab).")
     exit 0

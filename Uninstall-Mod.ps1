@@ -1,7 +1,7 @@
 #requires -Version 5.1
 <#
 .SYNOPSIS
-    Uninstaller / Disinstallatore - Vivaldi Workspace Tab Mover (v1.2.0).
+    Uninstaller / Disinstallatore - Vivaldi Workspace Tab Mover (v1.2.1).
 .DESCRIPTION
     Punto di uscita a click singolo (domande bilingui):
       - Ferma il watcher in background (Watcher-Daemon.ps1) e rimuove la voce
@@ -106,6 +106,9 @@ try {
     # ============================================================
     # Va fatto per primo: altrimenti il watcher rimetterebbe subito la mod.
     $allRoots = @($VivaldiAppRoot) + @($registered)
+    # Prima l'attivita' pianificata (altrimenti riaccenderebbe il watcher), poi il watcher.
+    $taskRemoved = Unregister-ModKeepalive
+    Write-Step (L "Scheduled task removed: $taskRemoved." "Attivita' pianificata rimossa: $taskRemoved.")
     $stopped = Stop-ModDaemon
     Write-Step (L "Background watcher stopped ($stopped process(es))." "Watcher in background fermato ($stopped processi).")
     try {

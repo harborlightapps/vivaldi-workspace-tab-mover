@@ -17,9 +17,9 @@
 
     <AssemblyTitle>Vivaldi WS-Mod Installer</AssemblyTitle>
     <Product>Vivaldi Workspace Tab Mover</Product>
-    <Version>1.2.0.0</Version>
-    <FileVersion>1.2.0.0</FileVersion>
-    <Company>Michele</Company>
+    <Version>1.2.1.0</Version>
+    <FileVersion>1.2.1.0</FileVersion>
+    <Company>harborlightapps</Company>
     <Description>Thin launcher of the Vivaldi Workspace Tab Mover installer (runs the PowerShell script next to it)</Description>
   </PropertyGroup>
 

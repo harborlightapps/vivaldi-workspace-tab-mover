@@ -1,8 +1,8 @@
 **Nota / Note**
 
-C'è **un'unica cartella/zip** che contiene sia `Install.bat`/`Install.exe` sia `Uninstall.bat`/`Uninstall.exe` fianco a fianco: sono due comandi indipendenti a un click ciascuno. Versione 1.2.0 (menu in inglese e italiano). Feedback: [Issues](https://github.com/milt983/vivaldi-workspace-tab-mover/issues) · [Discussions](https://github.com/milt983/vivaldi-workspace-tab-mover/discussions).
+C'è **un'unica cartella/zip** che contiene sia `Install.bat`/`Install.exe` sia `Uninstall.bat`/`Uninstall.exe` fianco a fianco: sono due comandi indipendenti a un click ciascuno. Versione 1.2.1 (menu in inglese e italiano). Novità 1.2.1: il watcher parte staccato dal programma che lo avvia e un'attività pianificata nascosta dell'utente (`VivaldiWSMod-Keepalive`, all'accesso e ogni 30 minuti) lo riaccende; il ripristino dopo un aggiornamento reale di Vivaldi è stato osservato dal vivo il 23/10/2026 (8.2.4133.89 → 8.2.4133.94). Feedback: [Issues](https://github.com/harborlightapps/vivaldi-workspace-tab-mover/issues) · [Discussions](https://github.com/harborlightapps/vivaldi-workspace-tab-mover/discussions).
 
-There is **one single folder/zip** containing both `Install.bat`/`Install.exe` and `Uninstall.bat`/`Uninstall.exe` side by side: two independent one-click commands. Version 1.2.0 (English and Italian menu). Feedback: [Issues](https://github.com/milt983/vivaldi-workspace-tab-mover/issues) · [Discussions](https://github.com/milt983/vivaldi-workspace-tab-mover/discussions).
+There is **one single folder/zip** containing both `Install.bat`/`Install.exe` and `Uninstall.bat`/`Uninstall.exe` side by side: two independent one-click commands. Version 1.2.1 (English and Italian menu). New in 1.2.1: the watcher starts detached from the program that launches it, and a hidden per-user scheduled task (`VivaldiWSMod-Keepalive`, at login and every 30 minutes) restarts it; restore after a real Vivaldi update was observed live on 23/10/2026 (8.2.4133.89 → 8.2.4133.94). Feedback: [Issues](https://github.com/harborlightapps/vivaldi-workspace-tab-mover/issues) · [Discussions](https://github.com/harborlightapps/vivaldi-workspace-tab-mover/discussions).
 
 ---
 # ITALIANO
@@ -53,7 +53,8 @@ Cosa succede dietro le quinte: i file del mod vengono copiati in `%LocalAppData%
 
 Non devi fare nulla. Dopo ogni aggiornamento di Vivaldi la mod torna da sola, **senza reinstallare e senza riavviare Windows**:
 - Il *watcher* (un piccolo programma nascosto, senza finestre né icone) resta in attesa. Quando l'aggiornatore di Vivaldi crea la nuova cartella versione, aspetta che `window.html` sia completo e che nessuno lo stia più scrivendo, poi rimette il tag `<script>`, il file `move-workspace-panel.js` e il suo piccolo file di configurazione della lingua (`move-workspace-panel.config.json`). Di solito succede **mentre l'aggiornamento è ancora in corso**, quindi già alla prima riapertura di Vivaldi la mod c'è.
-- Costo: praticamente zero (nessun controllo continuo: si sveglia solo quando compare una cartella nuova, più un controllo di sicurezza ogni 30 minuti). Occupa qualche decina di MB di memoria.
+- Costo: praticamente zero (nessun controllo continuo: si sveglia solo quando compare una cartella nuova, più un controllo di sicurezza ogni 30 minuti). Occupa circa 80 MB di memoria (misurati tra 73 e 91 MB).
+- **Si auto-ripara**: il watcher parte *staccato* da qualunque programma (non si chiude se si chiude il programma che ha lanciato l'installer) e un'**attività pianificata** dell'utente (`VivaldiWSMod-Keepalive`, nessun amministratore, nessuna finestra) controlla all'accesso e ogni 30 minuti che sia acceso: se lo è non fa nulla (non avvia PowerShell), se non lo è lo riaccende e la mod viene riparata subito.
 - Scrive in modo sicuro (file temporaneo + sostituzione, backup `window.html.bak`), non duplica mai il tag e lascia com'è la cartella della versione vecchia.
 - Se qualcosa non funziona, c'è un piccolo log (si ruota da solo): `%LocalAppData%\VivaldiWSMod\logs\ws-mod.log`.
 - In più, se apri Vivaldi da uno shortcut modificato dall'installer, `Watcher-Core.ps1` fa un controllo al volo prima dell'apertura (secondo canale).
@@ -62,9 +63,9 @@ Non devi fare nulla. Dopo ogni aggiornamento di Vivaldi la mod torna da sola, **
 
 ## Windows SmartScreen / antivirus, requisiti, limiti
 
-- **SmartScreen**: gli `.exe` non sono firmati digitalmente, Windows può mostrare un avviso ("Windows ha protetto il PC"). Puoi usare `Install.bat`/`Uninstall.bat` (stessa cosa, testo leggibile) o leggere il sorgente in `exe-source\` (dalla v1.2.0 gli `.exe` sono lanciatori minuscoli, 5 KB, che avviano solo `Install-Mod.ps1`/`Uninstall-Mod.ps1`). SHA256 di `Install.exe`: `207C6C729C5274C141159BC15BBD4082E7AABEADCBA50420DFEDE8BB9C36A0BD`; di `Uninstall.exe`: `CF9B0063512AFECA03E6AE5FFE09AD20D822704BB6BE2D807747BCD2E6E4D2B3`. Lo SHA256 dello zip è nelle note della Release su GitHub.
+- **SmartScreen**: gli `.exe` non sono firmati digitalmente, Windows può mostrare un avviso ("Windows ha protetto il PC"). Puoi usare `Install.bat`/`Uninstall.bat` (stessa cosa, testo leggibile) o leggere il sorgente in `exe-source\` (dalla v1.2.0 gli `.exe` sono lanciatori minuscoli, 5 KB, che avviano solo `Install-Mod.ps1`/`Uninstall-Mod.ps1`). SHA256 di `Install.exe`: `4622B661B69C4D9458B4CA5126ECDF997F0BA1F16A0D30EC8AC5697EA1BC591F`; di `Uninstall.exe`: `D246A2BFB55E3B2C9D59FD25D1BD7F839E76FCBFBBE2EF4D394B5C04BB833C96`. Lo SHA256 dello zip è nelle note della Release su GitHub.
 - **Requisiti**: Windows con PowerShell 5.1 (incluso), nessun amministratore; Vivaldi Standalone/Portable o normale. Provato su Windows 11.
-- **Non testato**: la rilevazione della lingua è stata verificata con Vivaldi in inglese e in italiano su un profilo di prova (l'impostazione esatta del tuo Vivaldi non è stata ispezionata); altre versioni di Vivaldi oltre 8.1.x/8.2.x, installazioni "normali" di recente, Windows 10, e un aggiornamento reale di Vivaldi osservato dal vivo (verificato solo con simulazione e sul log di un aggiornamento precedente).
+- **Non testato**: la rilevazione della lingua è stata verificata con Vivaldi in inglese e in italiano su un profilo di prova (l'impostazione esatta del tuo Vivaldi non è stata ispezionata); altre versioni di Vivaldi oltre 8.1.x/8.2.x, installazioni "normali" di recente e Windows 10. Il ripristino dopo un aggiornamento reale di Vivaldi è stato osservato dal vivo una volta (23/10/2026, 8.2.4133.89 → 8.2.4133.94, con la correzione della v1.2.1): è una sola osservazione, non una garanzia per ogni aggiornamento futuro.
 
 ## 3. Disinstallazione
 
@@ -75,7 +76,7 @@ Non devi fare nulla. Dopo ogni aggiornamento di Vivaldi la mod torna da sola, **
    - Se compare invece un avviso giallo su una cartella non completamente rimovibile: non è un errore bloccante. Il mod è già disinstallato e gli shortcut già ripristinati a quel punto; devi solo chiudere eventuali programmi che tengono occupata `%LocalAppData%\VivaldiWSMod` e cancellarla a mano.
 5. Premi un tasto per chiudere la finestra.
 
-Cosa succede dietro le quinte: `window.html` viene ripristinato all'originale, `move-workspace-panel.js` viene rimosso dall'installazione live, ogni shortcut modificato torna targetato/argomenti/icona originali, il watcher viene fermato e la sua voce di avvio automatico rimossa, e la cartella `%LocalAppData%\VivaldiWSMod\` viene eliminata.
+Cosa succede dietro le quinte: `window.html` viene ripristinato all'originale, `move-workspace-panel.js` viene rimosso dall'installazione live, ogni shortcut modificato torna targetato/argomenti/icona originali, l'attività pianificata viene rimossa, il watcher viene fermato e la sua voce di avvio automatico rimossa, e la cartella `%LocalAppData%\VivaldiWSMod\` viene eliminata.
 
 ---
 
@@ -127,7 +128,8 @@ Under the hood: mod files are copied to `%LocalAppData%\VivaldiWSMod\`; the `<sc
 
 Nothing to do. After every Vivaldi update the mod comes back by itself, **without reinstalling and without restarting Windows**:
 - The *watcher* (a small hidden program, no windows or tray icon) waits quietly. When Vivaldi's updater creates the new version folder, it waits until `window.html` is complete and nobody is writing to it any more, then puts the `<script>` tag, `move-workspace-panel.js` and its small language-config file (`move-workspace-panel.config.json`) back. This usually happens **while the update is still running**, so the mod is already there the first time you reopen Vivaldi.
-- Cost: practically zero (no continuous polling: it only wakes up when a new folder appears, plus a safety check every 30 minutes). It uses a few tens of MB of memory.
+- Cost: practically zero (no continuous polling: it only wakes up when a new folder appears, plus a safety check every 30 minutes). It uses about 80 MB of memory (measured between 73 and 91 MB).
+- **Self-healing**: the watcher starts *detached* from any program (it does not close when the program that launched the installer closes) and a per-user **scheduled task** (`VivaldiWSMod-Keepalive`, no administrator, no window) checks at login and every 30 minutes that it is running: if it is, it does nothing (no PowerShell is started); if it is not, it restarts it and the mod is repaired immediately.
 - Writes are safe (temporary file + replace, `window.html.bak` backup), the tag is never duplicated, and the old version folder is left as is.
 - If something does not work there is a small self-rotating log: `%LocalAppData%\VivaldiWSMod\logs\ws-mod.log`.
 - In addition, if you open Vivaldi from a shortcut modified by the installer, `Watcher-Core.ps1` does an on-the-fly check just before it opens (second channel).
@@ -136,9 +138,9 @@ Nothing to do. After every Vivaldi update the mod comes back by itself, **withou
 
 ## Windows SmartScreen / antivirus, requirements, limits
 
-- **SmartScreen**: the `.exe` files are not code-signed, Windows may show a warning ("Windows protected your PC"). You can use `Install.bat`/`Uninstall.bat` (same thing, readable text) or read the source in `exe-source\` (since v1.2.0 the `.exe` files are tiny 5 KB thin launchers that only run `Install-Mod.ps1`/`Uninstall-Mod.ps1`). SHA256 of `Install.exe`: `207C6C729C5274C141159BC15BBD4082E7AABEADCBA50420DFEDE8BB9C36A0BD`; of `Uninstall.exe`: `CF9B0063512AFECA03E6AE5FFE09AD20D822704BB6BE2D807747BCD2E6E4D2B3`. The zip's SHA256 is in the Release notes on GitHub.
+- **SmartScreen**: the `.exe` files are not code-signed, Windows may show a warning ("Windows protected your PC"). You can use `Install.bat`/`Uninstall.bat` (same thing, readable text) or read the source in `exe-source\` (since v1.2.0 the `.exe` files are tiny 5 KB thin launchers that only run `Install-Mod.ps1`/`Uninstall-Mod.ps1`). SHA256 of `Install.exe`: `4622B661B69C4D9458B4CA5126ECDF997F0BA1F16A0D30EC8AC5697EA1BC591F`; of `Uninstall.exe`: `D246A2BFB55E3B2C9D59FD25D1BD7F839E76FCBFBBE2EF4D394B5C04BB833C96`. The zip's SHA256 is in the Release notes on GitHub.
 - **Requirements**: Windows with PowerShell 5.1 (built in), no administrator; Vivaldi Standalone/Portable or regular. Tested on Windows 11.
-- **Not tested**: language detection was verified with Vivaldi in English and in Italian on a test profile (the exact setting of your own Vivaldi was not inspected); Vivaldi versions other than 8.1.x/8.2.x, "regular" installs recently, Windows 10, and a real Vivaldi update observed live (verified only via simulation and against the log of a previous update).
+- **Not tested**: language detection was verified with Vivaldi in English and in Italian on a test profile (the exact setting of your own Vivaldi was not inspected); Vivaldi versions other than 8.1.x/8.2.x, "regular" installs recently, and Windows 10. Restore after a real Vivaldi update was observed live once (23/10/2026, 8.2.4133.89 → 8.2.4133.94, with the v1.2.1 fix): a single observation, not a guarantee for every future update.
 
 ## 3. Uninstallation
 
@@ -149,4 +151,4 @@ Nothing to do. After every Vivaldi update the mod comes back by itself, **withou
    - If a yellow warning appears instead about a folder that couldn't be fully removed: this is not a blocking error. The mod is already uninstalled and shortcuts already restored at that point; just close any program holding `%LocalAppData%\VivaldiWSMod` open and delete it manually.
 5. Press any key to close the window.
 
-Under the hood: `window.html` is restored to Vivaldi's original, `move-workspace-panel.js` is removed from the live install, every modified shortcut is restored to its original target/arguments/icon, the watcher is stopped and its autostart entry removed, and the `%LocalAppData%\VivaldiWSMod\` folder is deleted.
+Under the hood: `window.html` is restored to Vivaldi's original, `move-workspace-panel.js` is removed from the live install, every modified shortcut is restored to its original target/arguments/icon, the scheduled task is removed, the watcher is stopped and its autostart entry removed, and the `%LocalAppData%\VivaldiWSMod\` folder is deleted.

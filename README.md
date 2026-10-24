@@ -16,7 +16,7 @@ After a Vivaldi update the mod puts itself back automatically (no reinstall, no 
 
 *The Workspace names in the screenshots (Work, Personal, Reading) are examples.*
 
-**Version 1.2.0** · [Download (Releases)](https://github.com/milt983/vivaldi-workspace-tab-mover/releases/latest) · [Issues](https://github.com/milt983/vivaldi-workspace-tab-mover/issues) · [Discussions](https://github.com/milt983/vivaldi-workspace-tab-mover/discussions) · License: [MIT](LICENSE)
+**Version 1.2.1** · [Download (Releases)](https://github.com/harborlightapps/vivaldi-workspace-tab-mover/releases/latest) · [Issues](https://github.com/harborlightapps/vivaldi-workspace-tab-mover/issues) · [Discussions](https://github.com/harborlightapps/vivaldi-workspace-tab-mover/discussions) · License: [MIT](LICENSE)
 
 *[Versione italiana più sotto → ITALIANO](#italiano)*
 
@@ -26,7 +26,7 @@ After a Vivaldi update the mod puts itself back automatically (no reinstall, no 
 
 ### Install in 3 steps
 
-1. Download the zip from [Releases](https://github.com/milt983/vivaldi-workspace-tab-mover/releases/latest) and extract it.
+1. Download the zip from [Releases](https://github.com/harborlightapps/vivaldi-workspace-tab-mover/releases/latest) and extract it.
 2. Double-click **Install.bat** (or **Install.exe**). Enter the path of your Vivaldi **Application** folder, e.g. `H:\Vivaldi Standalone\Application` (Standalone/Portable) or `C:\Users\<user>\AppData\Local\Vivaldi\Application` (regular install), then choose the language (Enter = detect it from Vivaldi's interface).
 3. Open Vivaldi. In the "Windows and Tabs" panel: **Ctrl+click** the tabs you want, then **Shift+right-click** on one of them → choose the Workspace.
 
@@ -74,11 +74,12 @@ payload/
 
 ### Automatic maintenance (what runs on your PC)
 
-- A single **hidden** PowerShell process (no window, no tray icon), started at login via an `HKCU\...\Run` entry (no administrator) and right after installation.
+- A single **hidden** PowerShell process (no window, no tray icon), started at login via an `HKCU\...\Run` entry (no administrator) and right after installation. It is started *detached* (through Windows), so it does not close together with whatever program launched the installer.
+- A **self-healing scheduled task** (`VivaldiWSMod-Keepalive`, per-user, no administrator, fully hidden): at login and every 30 minutes it checks whether the watcher is running. If it is, it does nothing (no PowerShell is started, about 0.2 s of CPU per check); if it is not, it restarts it, and the restarted watcher repairs the mod immediately.
 - Event-driven, no continuous polling: it waits for a new Vivaldi version folder to appear, waits until `window.html` is complete and stable, then puts the `<script>` tag, the mod file and its small language-config file back (atomic writes, `window.html.bak` backup, never duplicated). Plus a safety check every 30 minutes.
-- Measured cost: about **73 MB** of memory, **CPU close to zero** (about 0.005 % at rest).
+- Measured cost: about **80 MB** of memory (measured between 73 and 91 MB at different times), **CPU close to zero** (between 0.00 % and 0.03 % at rest).
 - Small self-rotating log: `%LocalAppData%\VivaldiWSMod\logs\ws-mod.log`.
-- Fully removed by **Uninstall** (stops the process, removes the autostart entry, restores `window.html`, removes the mod and language-config files, deletes `%LocalAppData%\VivaldiWSMod`). Your language choice made in the browser lives in the Vivaldi profile and cannot be removed from outside; without the mod it has no effect.
+- Fully removed by **Uninstall** (removes the scheduled task, stops the process, removes the autostart entry, restores `window.html`, removes the mod and language-config files, deletes `%LocalAppData%\VivaldiWSMod`). Your language choice made in the browser lives in the Vivaldi profile and cannot be removed from outside; without the mod it has no effect.
 
 ### Uninstallation
 
@@ -90,20 +91,26 @@ The `.exe` files are **not code-signed**, so Windows SmartScreen or an antivirus
 - use **Install.bat / Uninstall.bat**, which do exactly the same thing and are plain readable text;
 - read the code: since v1.2.0 the `.exe` files are tiny (5 KB) thin launchers that only run `Install-Mod.ps1` / `Uninstall-Mod.ps1` (source in `exe-source/`, built with the C# compiler that ships with Windows);
 - verify integrity. SHA256 of this version's `.exe` files:
-  - `Install.exe`: `207C6C729C5274C141159BC15BBD4082E7AABEADCBA50420DFEDE8BB9C36A0BD`
-  - `Uninstall.exe`: `CF9B0063512AFECA03E6AE5FFE09AD20D822704BB6BE2D807747BCD2E6E4D2B3`
-  - the SHA256 of the Release **zip** is in the [Release](https://github.com/milt983/vivaldi-workspace-tab-mover/releases/latest) notes (it cannot be in this file, which is inside the zip).
+  - `Install.exe`: `4622B661B69C4D9458B4CA5126ECDF997F0BA1F16A0D30EC8AC5697EA1BC591F`
+  - `Uninstall.exe`: `D246A2BFB55E3B2C9D59FD25D1BD7F839E76FCBFBBE2EF4D394B5C04BB833C96`
+  - the SHA256 of the Release **zip** is in the [Release](https://github.com/harborlightapps/vivaldi-workspace-tab-mover/releases/latest) notes (it cannot be in this file, which is inside the zip).
 
 ### What has NOT been tested (honesty)
 
 - Tested on Windows 11 with Vivaldi Standalone 8.1.x and 8.2.x. Other Vivaldi versions and "regular" (non-Standalone) installs have not been tried recently: if Vivaldi changes the internal structure of `window.html` or of the panel, the mod may stop working.
 - Language detection from Vivaldi's interface was verified with Vivaldi started in English and in Italian (command-line language and the saved app-locale setting) on a test profile; the exact setting your own Vivaldi uses has not been inspected.
-- Restore after a **real Vivaldi update** was verified with a simulation (new version folder, file written in several chunks and locked) and against the log of a previous real update, but has not yet been observed live during an actual update.
+- Restore after a **real Vivaldi update** was verified with a simulation (new version folder, file written in several chunks and locked) and then observed live once, on 23/10/2026 (Vivaldi Standalone 8.2.4133.89 → 8.2.4133.94, with the v1.2.1 fix): the mod came back by itself. That is a single observation, not a guarantee for every future update.
 - Only English and Italian menus exist. The features rely on undocumented Vivaldi internals: use at your own risk.
+
+### Changelog
+
+- **v1.2.1** — The background watcher now starts *detached* from the program that launches it (through Windows/WMI), and a hidden per-user scheduled task (VivaldiWSMod-Keepalive, at login and every 30 minutes) restarts it if it is ever stopped. Automatic restore after a real Vivaldi update was observed live (8.2.4133.89 → 8.2.4133.94, 23/10/2026).
+- **v1.2.0** — English + Italian menu and installer, language switch.
+- **v1.1.0** — First public version.
 
 ### Feedback
 
-Does it work for you? Please tell us — in [Discussions](https://github.com/milt983/vivaldi-workspace-tab-mover/discussions) (questions, ideas, "works for me") or [Issues](https://github.com/milt983/vivaldi-workspace-tab-mover/issues) (bugs). Useful info: your **Vivaldi version**, your **Windows version**, Standalone or regular install, whether the mod works (menu appears, tabs move), and, if something fails, the last lines of `%LocalAppData%\VivaldiWSMod\logs\ws-mod.log`.
+Does it work for you? Please tell us — in [Discussions](https://github.com/harborlightapps/vivaldi-workspace-tab-mover/discussions) (questions, ideas, "works for me") or [Issues](https://github.com/harborlightapps/vivaldi-workspace-tab-mover/issues) (bugs). Useful info: your **Vivaldi version**, your **Windows version**, Standalone or regular install, whether the mod works (menu appears, tabs move), and, if something fails, the last lines of `%LocalAppData%\VivaldiWSMod\logs\ws-mod.log`.
 
 Full step-by-step guide (IT/EN): [`Guida-Mod-Vivaldi-IT-EN.md`](Guida-Mod-Vivaldi-IT-EN.md).
 
@@ -115,7 +122,7 @@ Mod non ufficiale per **Vivaldi** su **Windows**: aggiunge al pannello "Windows 
 
 ### Installazione in 3 passi
 
-1. Scarica lo zip da [Releases](https://github.com/milt983/vivaldi-workspace-tab-mover/releases/latest) e decomprimilo.
+1. Scarica lo zip da [Releases](https://github.com/harborlightapps/vivaldi-workspace-tab-mover/releases/latest) e decomprimilo.
 2. Doppio click su **Install.bat** (o **Install.exe**). Inserisci il percorso della cartella **Application** di Vivaldi, ad es. `H:\Vivaldi Standalone\Application` (Standalone/Portable) oppure `C:\Users\<utente>\AppData\Local\Vivaldi\Application` (installazione normale), poi scegli la lingua (Invio = rilevata dall'interfaccia di Vivaldi).
 3. Apri Vivaldi. Nel pannello "Windows and Tabs": **Ctrl+clic** sulle tab che vuoi, poi **Maiusc + tasto destro** su una di esse → scegli il Workspace.
 
@@ -145,11 +152,12 @@ Il menu è disponibile in **English** e **Italiano**.
 
 ### Manutenzione automatica (cosa gira sul tuo PC)
 
-- Un solo processo PowerShell **nascosto** (nessuna finestra, nessuna icona), avviato al login con una voce `HKCU\...\Run` (nessun amministratore) e subito dopo l'installazione.
+- Un solo processo PowerShell **nascosto** (nessuna finestra, nessuna icona), avviato al login con una voce `HKCU\...\Run` (nessun amministratore) e subito dopo l'installazione. Parte *staccato* (tramite Windows), quindi non si chiude insieme al programma che ha lanciato l'installer.
+- Un'**attività pianificata che si auto-ripara** (`VivaldiWSMod-Keepalive`, dell'utente, senza amministratore, completamente nascosta): all'accesso e ogni 30 minuti controlla se il watcher è acceso. Se lo è, non fa nulla (non avvia PowerShell, circa 0,2 s di CPU per controllo); se non lo è, lo riaccende, e il watcher riacceso ripara subito la mod.
 - È guidato da eventi, non fa controlli continui: aspetta che compaia una nuova cartella versione di Vivaldi, attende che `window.html` sia completo e stabile, poi rimette il tag `<script>`, il file del mod e il suo piccolo file di configurazione della lingua (scrittura atomica, backup `window.html.bak`, mai duplicati). In più un controllo di sicurezza ogni 30 minuti.
-- Consumo misurato: circa **73 MB** di memoria, **CPU vicino a zero** (circa 0,005 % a riposo).
+- Consumo misurato: circa **80 MB** di memoria (misurati tra 73 e 91 MB in momenti diversi), **CPU vicino a zero** (tra 0,00 % e 0,03 % a riposo).
 - Log breve, che si ruota da solo: `%LocalAppData%\VivaldiWSMod\logs\ws-mod.log`.
-- Si rimuove del tutto con **Uninstall** (ferma il processo, toglie la voce di avvio, ripristina `window.html`, rimuove il mod e il file di lingua, cancella `%LocalAppData%\VivaldiWSMod`). La lingua scelta nel browser sta nel profilo di Vivaldi e non si può cancellare dall'esterno; senza la mod non ha effetto.
+- Si rimuove del tutto con **Uninstall** (toglie l'attività pianificata, ferma il processo, toglie la voce di avvio, ripristina `window.html`, rimuove il mod e il file di lingua, cancella `%LocalAppData%\VivaldiWSMod`). La lingua scelta nel browser sta nel profilo di Vivaldi e non si può cancellare dall'esterno; senza la mod non ha effetto.
 
 ### Disinstallazione
 
@@ -160,18 +168,24 @@ Doppio click su **Uninstall.bat** o **Uninstall.exe**, inserisci lo stesso perco
 Gli `.exe` **non sono firmati digitalmente**, quindi Windows SmartScreen o un antivirus possono mostrare un avviso ("Windows ha protetto il PC"). Non è un malware: puoi
 - usare **Install.bat / Uninstall.bat**, che fanno esattamente la stessa cosa e sono testo leggibile;
 - leggere il codice: dalla v1.2.0 gli `.exe` sono lanciatori minuscoli (5 KB) che avviano solo `Install-Mod.ps1` / `Uninstall-Mod.ps1` (sorgente in `exe-source/`, compilati con il compilatore C# incluso in Windows);
-- verificare l'integrità: gli SHA256 di `Install.exe` e `Uninstall.exe` sono nella sezione inglese qui sopra; lo SHA256 dello **zip** è scritto nelle note della [Release](https://github.com/milt983/vivaldi-workspace-tab-mover/releases/latest) (non può stare in questo file, che è dentro lo zip).
+- verificare l'integrità: gli SHA256 di `Install.exe` e `Uninstall.exe` sono nella sezione inglese qui sopra; lo SHA256 dello **zip** è scritto nelle note della [Release](https://github.com/harborlightapps/vivaldi-workspace-tab-mover/releases/latest) (non può stare in questo file, che è dentro lo zip).
 
 ### Cosa NON è stato testato (onestà)
 
 - Testato su Windows 11 con Vivaldi Standalone 8.1.x e 8.2.x. Altre versioni di Vivaldi e le installazioni "normali" (non Standalone) non sono state provate di recente: se Vivaldi cambia la struttura interna di `window.html` o del pannello, la mod potrebbe non funzionare.
 - La rilevazione della lingua dall'interfaccia di Vivaldi è stata verificata con Vivaldi avviato in inglese e in italiano (lingua da riga di comando e impostazione salvata) su un profilo di prova; l'impostazione esatta usata dal tuo Vivaldi non è stata ispezionata.
-- Il ripristino dopo un **aggiornamento reale** di Vivaldi è stato verificato con una simulazione (cartella versione nuova, file scritto a più riprese e bloccato) e sul log di un aggiornamento reale precedente, ma non ancora osservato dal vivo su un aggiornamento in corso.
+- Il ripristino dopo un **aggiornamento reale** di Vivaldi è stato verificato con una simulazione (cartella versione nuova, file scritto a più riprese e bloccato) e poi osservato dal vivo una volta, il 23/10/2026 (Vivaldi Standalone 8.2.4133.89 → 8.2.4133.94, con la correzione della v1.2.1): la mod è tornata da sola. È una sola osservazione, non una garanzia per ogni aggiornamento futuro.
 - Esistono solo i menu in inglese e in italiano. Le funzioni dipendono da dettagli interni di Vivaldi (non documentati): usa a tuo rischio.
+
+### Changelog
+
+- **v1.2.1** — Il watcher in background ora parte *staccato* dal programma che lo avvia (tramite Windows/WMI) e un'attività pianificata nascosta dell'utente (VivaldiWSMod-Keepalive, all'accesso e ogni 30 minuti) lo riaccende se si ferma. Il ripristino automatico dopo un aggiornamento reale di Vivaldi è stato osservato dal vivo (8.2.4133.89 → 8.2.4133.94, 23/10/2026).
+- **v1.2.0** — Menu e installer in inglese e italiano, cambio lingua.
+- **v1.1.0** — Prima versione pubblica.
 
 ### Feedback
 
-Funziona per te? Dicci come va, in [Discussions](https://github.com/milt983/vivaldi-workspace-tab-mover/discussions) (domande, idee, "per me funziona") oppure in [Issues](https://github.com/milt983/vivaldi-workspace-tab-mover/issues) (problemi). Indica la **versione di Vivaldi**, la **versione di Windows**, se l'installazione è Standalone o normale, se la mod funziona (compare il menu, le tab si spostano) e, se qualcosa non va, le ultime righe di `%LocalAppData%\VivaldiWSMod\logs\ws-mod.log`.
+Funziona per te? Dicci come va, in [Discussions](https://github.com/harborlightapps/vivaldi-workspace-tab-mover/discussions) (domande, idee, "per me funziona") oppure in [Issues](https://github.com/harborlightapps/vivaldi-workspace-tab-mover/issues) (problemi). Indica la **versione di Vivaldi**, la **versione di Windows**, se l'installazione è Standalone o normale, se la mod funziona (compare il menu, le tab si spostano) e, se qualcosa non va, le ultime righe di `%LocalAppData%\VivaldiWSMod\logs\ws-mod.log`.
 
 Guida completa passo-passo (IT/EN): [`Guida-Mod-Vivaldi-IT-EN.md`](Guida-Mod-Vivaldi-IT-EN.md).
 
@@ -185,4 +199,4 @@ Progetto non ufficiale, non affiliato a Vivaldi Technologies. Modifica file inte
 
 ## License / Licenza
 
-[MIT](LICENSE) © 2026 milt983
+[MIT](LICENSE) © 2026 harborlightapps

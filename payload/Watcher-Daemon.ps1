@@ -22,6 +22,9 @@
     Log breve (con rotazione) in %LocalAppData%\VivaldiWSMod\logs\ws-mod.log.
 #>
 param(
+    # Cartella del mod: passata da Start-Daemon.vbs (cosi' funziona anche se il processo e' stato creato
+    # da Windows/WMI, che non eredita le variabili d'ambiente di chi lo ha richiesto).
+    [string]$ModRoot = '',
     [int]$StableAgeSeconds   = 4,
     [int]$ActiveTickSeconds  = 5,
     [int]$ActiveWindowMinutes = 20,
@@ -29,6 +32,8 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+# Solo se la cartella del mod NON e' quella standard (test automatici): la imposta per questo processo.
+if ($ModRoot -and ($ModRoot.TrimEnd('\') -ine (Join-Path $env:LOCALAPPDATA 'VivaldiWSMod'))) { $env:VIVALDI_WSMOD_ROOT = $ModRoot.TrimEnd('\') }
 . (Join-Path $PSScriptRoot 'Mod-Common.ps1')
 
 $ModRoot  = Get-ModRoot

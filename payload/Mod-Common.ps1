@@ -236,3 +236,47 @@ function Get-ModDaemonProcesses {
     @(Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
         Where-Object { $_.CommandLine -match 'Watcher-Daemon\.ps1' -and $_.CommandLine -like ('*' + (Get-ModRoot) + '*') -and $_.ProcessId -ne $PID })
 }
+
+# --- Avvio staccato del watcher e attivita' pianificata di "riaccensione" (RICHIESTA-004, correzione 23/10/2026) ---
+# Il watcher avviato come figlio del programma che lancia l'installer (nel caso reale: l'app Claude)
+# si chiudeva insieme a quel programma. Ora parte tramite Windows (WMI): il processo risulta figlio di
+# WmiPrvSE, non del chiamante, e non eredita i suoi job/gruppi di processi.
+function Start-ModDaemonDetached {
+    param([string]$VbsPath)
+    $wscript = Join-Path $env:WINDIR 'System32\wscript.exe'
+    $cmd = '"{0}" //B "{1}"' -f $wscript, $VbsPath
+    try {
+        $r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = $cmd } -ErrorAction Stop
+        if ($r.ReturnValue -eq 0) { return 'wmi' }
+    } catch { }
+    try { Start-Process -FilePath $wscript -ArgumentList @('//B', ('"{0}"' -f $VbsPath)) -WindowStyle Hidden; return 'process' } catch { return $null }
+}
+
+# Nome dell'attivita': in modalita' test (VIVALDI_WSMOD_ROOT impostata) ha un suffisso, cosi' non tocca mai quella reale.
+function Get-ModTaskName {
+    if ($env:VIVALDI_WSMOD_ROOT) { return 'VivaldiWSMod-Keepalive-TEST' }
+    return 'VivaldiWSMod-Keepalive'
+}
+
+# Attivita' dell'utente (nessun amministratore): all'accesso e ogni N minuti avvia Start-Daemon.vbs, che
+# non fa nulla se il watcher e' gia' acceso e altrimenti lo riaccende (e ripara subito la Mod).
+function Register-ModKeepalive {
+    param([string]$VbsPath, [int]$IntervalMinutes = 30)
+    $name = Get-ModTaskName
+    $user = '{0}\{1}' -f $env:USERDOMAIN, $env:USERNAME
+    $action = New-ScheduledTaskAction -Execute (Join-Path $env:WINDIR 'System32\wscript.exe') -Argument ('//B //NoLogo "{0}"' -f $VbsPath)
+    $tLogon = New-ScheduledTaskTrigger -AtLogOn -User $user
+    $tRepeat = New-ScheduledTaskTrigger -Once -At ((Get-Date).AddMinutes(1)) -RepetitionInterval (New-TimeSpan -Minutes $IntervalMinutes) -RepetitionDuration (New-TimeSpan -Days 3650)
+    $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 2) -Hidden
+    $principal = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Limited
+    Register-ScheduledTask -TaskName $name -Action $action -Trigger @($tLogon, $tRepeat) -Settings $settings -Principal $principal -Description 'Vivaldi Workspace Tab Mover: riaccende il watcher in background se e'' spento (non fa nulla se e'' gia'' acceso).' -Force | Out-Null
+    return $name
+}
+
+function Unregister-ModKeepalive {
+    $name = Get-ModTaskName
+    try {
+        if (Get-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue) { Unregister-ScheduledTask -TaskName $name -Confirm:$false -ErrorAction Stop; return $true }
+    } catch { }
+    return $false
+}
