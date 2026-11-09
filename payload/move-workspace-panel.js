@@ -576,6 +576,58 @@
   // operazione logica (una chiamata chrome.tabs.update per tab, ma un
   // solo giro di menu/click per l'utente). Mostra un badge di riepilogo
   // solo a operazione completata (successo totale, o parziale con errori).
+  //
+  // v1.2.2 - Vivaldi 8.3: chrome.tabs.update(tab, { vivExtData: {workspaceId} })
+  // risponde "ok" ma NON sposta piu' nulla (il valore viene ignorato; provato su
+  // 8.3.4191.30). Il menu nativo usa vivaldi.tabsPrivate.move({tabIds, target:'last',
+  // tweaks:['do-not-reparent'], workspaceId}): metodo principale = quello nativo, con
+  // la stessa chiamata. Se il Workspace e' ancora vuoto il browser risponde
+  // "invalid workspaceId": in quel caso si ripete la chiamata indicando anche la
+  // finestra (windowId) della prima tab. Il vecchio metodo resta solo come ripiego
+  // (API assente, oppure risposta di errore diversa).
+  function hasTabsPrivateMove() {
+    try {
+      return !!(window.vivaldi && window.vivaldi.tabsPrivate &&
+        typeof window.vivaldi.tabsPrivate.move === 'function');
+    } catch (e) { return false; }
+  }
+
+  // Una chiamata a vivaldi.tabsPrivate.move. cb(ok, motivo)
+  function callTabsPrivateMove(props, cb) {
+    var finished = false;
+    function result(res) {
+      if (finished) return;
+      finished = true;
+      var lastErr = chrome.runtime && chrome.runtime.lastError;
+      if (lastErr) { cb(false, String(lastErr.message || lastErr)); return; }
+      if (res && res.success === false) { cb(false, String(res.message || 'success=false')); return; }
+      cb(true, '');
+    }
+    try {
+      window.vivaldi.tabsPrivate.move(props, result);
+    } catch (e) {
+      result({ success: false, message: String(e && e.message || e) });
+    }
+  }
+
+  // Sposta con l'API nativa. done(true) = tutte le tab spostate; done(false, motivo) = fallito.
+  function moveViaTabsPrivate(tabIds, workspaceId, done) {
+    var wsNum = Number(workspaceId);
+    var base = { tabIds: tabIds.slice(), target: 'last', tweaks: ['do-not-reparent'], workspaceId: wsNum };
+
+    callTabsPrivateMove(base, function (ok, reason) {
+      if (ok) { done(true, ''); return; }
+      if (!/invalid workspaceId/i.test(reason)) { done(false, reason); return; }
+      // Workspace ancora vuoto: serve la finestra (quella della prima tab).
+      try {
+        chrome.tabs.get(tabIds[0], function (tab) {
+          if ((chrome.runtime && chrome.runtime.lastError) || !tab) { done(false, reason); return; }
+          var withWin = { tabIds: tabIds.slice(), target: 'last', windowId: tab.windowId, tweaks: ['do-not-reparent'], workspaceId: wsNum };
+          callTabsPrivateMove(withWin, done);
+        });
+      } catch (e) { done(false, reason); }
+    });
+  }
   function moveTabsToWorkspace(tabIds, workspaceId) {
     var total = tabIds.length;
     var done = 0;
@@ -592,6 +644,23 @@
       }
     }
 
+    if (hasTabsPrivateMove()) {
+      moveViaTabsPrivate(tabIds, workspaceId, function (ok, reason) {
+        if (ok) {
+          // tutte le tab spostate dall'API nativa: nessun ripiego
+          for (var i = 0; i < total; i++) finish(false);
+          return;
+        }
+        console.warn('[WS-mod] vivaldi.tabsPrivate.move failed (' + reason + '): using the old method.');
+        moveViaTabsUpdate(tabIds, workspaceId, finish);
+      });
+      return;
+    }
+    moveViaTabsUpdate(tabIds, workspaceId, finish);
+  }
+
+  // Vecchio metodo (Vivaldi <= 8.2): scrive il workspaceId in vivExtData della tab.
+  function moveViaTabsUpdate(tabIds, workspaceId, finish) {
     tabIds.forEach(function (tabId) {
       try {
         chrome.tabs.get(tabId, function (tab) {

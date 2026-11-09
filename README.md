@@ -16,7 +16,7 @@ After a Vivaldi update the mod puts itself back automatically (no reinstall, no 
 
 *The Workspace names in the screenshots (Work, Personal, Reading) are examples.*
 
-**Version 1.2.1** · [Download (Releases)](https://github.com/harborlightapps/vivaldi-workspace-tab-mover/releases/latest) · [Issues](https://github.com/harborlightapps/vivaldi-workspace-tab-mover/issues) · [Discussions](https://github.com/harborlightapps/vivaldi-workspace-tab-mover/discussions) · License: [MIT](LICENSE)
+**Version 1.2.2** · [Download (Releases)](https://github.com/harborlightapps/vivaldi-workspace-tab-mover/releases/latest) · [Issues](https://github.com/harborlightapps/vivaldi-workspace-tab-mover/issues) · [Discussions](https://github.com/harborlightapps/vivaldi-workspace-tab-mover/discussions) · License: [MIT](LICENSE)
 
 *[Versione italiana più sotto → ITALIANO](#italiano)*
 
@@ -74,8 +74,8 @@ payload/
 
 ### Automatic maintenance (what runs on your PC)
 
-- A single **hidden** PowerShell process (no window, no tray icon), started at login via an `HKCU\...\Run` entry (no administrator) and right after installation. It is started *detached* (through Windows), so it does not close together with whatever program launched the installer.
-- A **self-healing scheduled task** (`VivaldiWSMod-Keepalive`, per-user, no administrator, fully hidden): at login and every 30 minutes it checks whether the watcher is running. If it is, it does nothing (no PowerShell is started, about 0.2 s of CPU per check); if it is not, it restarts it, and the restarted watcher repairs the mod immediately.
+- A single **hidden** PowerShell process (no window, no tray icon), started at login via an `HKCU\...\Run` entry (no administrator) and right after installation. It is started *detached* (through Windows), so it does not close together with whatever program launched the installer. It starts through `conhost.exe --headless`, so no console window is created at all (not even for an instant), always with your normal user rights (never as administrator, even if the installer was run as administrator).
+- A **self-healing scheduled task** (`VivaldiWSMod-Keepalive`, per-user, no administrator, fully hidden): at login and every 30 minutes it checks whether the watcher is running (it tries to open the lock file `watcher.lock`, which the watcher keeps locked while it lives: this works whatever rights the watcher has, and a second watcher can never run). If it is, it does nothing (no PowerShell is started, about 0.2 s of CPU per check); if it is not, it restarts it, and the restarted watcher repairs the mod immediately.
 - Event-driven, no continuous polling: it waits for a new Vivaldi version folder to appear, waits until `window.html` is complete and stable, then puts the `<script>` tag, the mod file and its small language-config file back (atomic writes, `window.html.bak` backup, never duplicated). Plus a safety check every 30 minutes.
 - Measured cost: about **80 MB** of memory (measured between 73 and 91 MB at different times), **CPU close to zero** (between 0.00 % and 0.03 % at rest).
 - Small self-rotating log: `%LocalAppData%\VivaldiWSMod\logs\ws-mod.log`.
@@ -91,19 +91,20 @@ The `.exe` files are **not code-signed**, so Windows SmartScreen or an antivirus
 - use **Install.bat / Uninstall.bat**, which do exactly the same thing and are plain readable text;
 - read the code: since v1.2.0 the `.exe` files are tiny (5 KB) thin launchers that only run `Install-Mod.ps1` / `Uninstall-Mod.ps1` (source in `exe-source/`, built with the C# compiler that ships with Windows);
 - verify integrity. SHA256 of this version's `.exe` files:
-  - `Install.exe`: `4622B661B69C4D9458B4CA5126ECDF997F0BA1F16A0D30EC8AC5697EA1BC591F`
-  - `Uninstall.exe`: `D246A2BFB55E3B2C9D59FD25D1BD7F839E76FCBFBBE2EF4D394B5C04BB833C96`
+  - `Install.exe`: `C075909D61D92E5388F65BD2D48536CB8B1051B7E63B706C09066A8FD815B42D`
+  - `Uninstall.exe`: `A04056A4000E2107D4435086C5CBA16E402294908AC538A01955C6C58BCBBB74`
   - the SHA256 of the Release **zip** is in the [Release](https://github.com/harborlightapps/vivaldi-workspace-tab-mover/releases/latest) notes (it cannot be in this file, which is inside the zip).
 
 ### What has NOT been tested (honesty)
 
-- Tested on Windows 11 with Vivaldi Standalone 8.1.x and 8.2.x. Other Vivaldi versions and "regular" (non-Standalone) installs have not been tried recently: if Vivaldi changes the internal structure of `window.html` or of the panel, the mod may stop working.
+- Tested on Windows 11 with Vivaldi Standalone 8.1.x, 8.2.x and 8.3.x (moving tabs with v1.2.2 was tested only on a copy of 8.3.4191.30). Other Vivaldi versions and "regular" (non-Standalone) installs have not been tried recently: if Vivaldi changes the internal structure of `window.html` or of the panel, the mod may stop working.
 - Language detection from Vivaldi's interface was verified with Vivaldi started in English and in Italian (command-line language and the saved app-locale setting) on a test profile; the exact setting your own Vivaldi uses has not been inspected.
-- Restore after a **real Vivaldi update** was verified with a simulation (new version folder, file written in several chunks and locked) and then observed live once, on 23/10/2026 (Vivaldi Standalone 8.2.4133.89 → 8.2.4133.94, with the v1.2.1 fix): the mod came back by itself. That is a single observation, not a guarantee for every future update.
+- Restore after a **real Vivaldi update** was verified with a simulation (new version folder, file written in several chunks and locked) and then observed live on real updates, according to the mod's own log: 23/10/2026 (8.2.4133.89 → 8.2.4133.94), 05/11/2026 (to 8.3.4191.26) and 06/11/2026 (to 8.3.4191.30). The mod came back by itself each time. These are three observations, not a guarantee for every future update.
 - Only English and Italian menus exist. The features rely on undocumented Vivaldi internals: use at your own risk.
 
 ### Changelog
 
+- **v1.2.2** — Fixes moving tabs on Vivaldi 8.3: choosing a Workspace in the mod's menu did nothing, because Vivaldi 8.3 ignores the old way of assigning a tab to a Workspace (it answered ok but changed nothing). The mod now uses the same internal call as Vivaldi's own Move to Workspace menu; the old method stays only as a fallback. Tested on a test copy of Vivaldi 8.3.4191.30: 1, 2 and 3 tabs (also non-consecutive), to Workspaces with and without tabs, and the language switch. The old method on Vivaldi 8.2 was not re-tested with this version. Also: the background watcher is now recognised through a lock file (`watcher.lock`) instead of by reading its command line, so the 30-minute check no longer starts a useless PowerShell when the watcher runs with different rights (for example started as administrator), and a second watcher can never run. The watcher starts without any console window (`conhost.exe --headless`) and always with your normal user rights; if the installer is run as administrator it only warns and still starts the watcher with normal rights (through the scheduled task). `Install.bat`/`Install.exe` (and the uninstallers) now close by themselves 6 seconds after a successful run instead of waiting for a key; on error they stay open so you can read the message.
 - **v1.2.1** — The background watcher now starts *detached* from the program that launches it (through Windows/WMI), and a hidden per-user scheduled task (VivaldiWSMod-Keepalive, at login and every 30 minutes) restarts it if it is ever stopped. Automatic restore after a real Vivaldi update was observed live (8.2.4133.89 → 8.2.4133.94, 23/10/2026).
 - **v1.2.0** — English + Italian menu and installer, language switch.
 - **v1.1.0** — First public version.
@@ -152,8 +153,8 @@ Il menu è disponibile in **English** e **Italiano**.
 
 ### Manutenzione automatica (cosa gira sul tuo PC)
 
-- Un solo processo PowerShell **nascosto** (nessuna finestra, nessuna icona), avviato al login con una voce `HKCU\...\Run` (nessun amministratore) e subito dopo l'installazione. Parte *staccato* (tramite Windows), quindi non si chiude insieme al programma che ha lanciato l'installer.
-- Un'**attività pianificata che si auto-ripara** (`VivaldiWSMod-Keepalive`, dell'utente, senza amministratore, completamente nascosta): all'accesso e ogni 30 minuti controlla se il watcher è acceso. Se lo è, non fa nulla (non avvia PowerShell, circa 0,2 s di CPU per controllo); se non lo è, lo riaccende, e il watcher riacceso ripara subito la mod.
+- Un solo processo PowerShell **nascosto** (nessuna finestra, nessuna icona), avviato al login con una voce `HKCU\...\Run` (nessun amministratore) e subito dopo l'installazione. Parte *staccato* (tramite Windows), quindi non si chiude insieme al programma che ha lanciato l'installer. Parte tramite `conhost.exe --headless`: non viene creata nessuna finestra di console, nemmeno per un istante, e sempre con i tuoi permessi normali di utente (mai come amministratore, anche se l'installer è stato lanciato come amministratore).
+- Un'**attività pianificata che si auto-ripara** (`VivaldiWSMod-Keepalive`, dell'utente, senza amministratore, completamente nascosta): all'accesso e ogni 30 minuti controlla se il watcher è acceso (prova ad aprire il file di blocco `watcher.lock`, che il watcher tiene bloccato finché vive: funziona con qualunque livello di permessi del watcher e un secondo watcher non può mai partire). Se lo è, non fa nulla (non avvia PowerShell, circa 0,2 s di CPU per controllo); se non lo è, lo riaccende, e il watcher riacceso ripara subito la mod.
 - È guidato da eventi, non fa controlli continui: aspetta che compaia una nuova cartella versione di Vivaldi, attende che `window.html` sia completo e stabile, poi rimette il tag `<script>`, il file del mod e il suo piccolo file di configurazione della lingua (scrittura atomica, backup `window.html.bak`, mai duplicati). In più un controllo di sicurezza ogni 30 minuti.
 - Consumo misurato: circa **80 MB** di memoria (misurati tra 73 e 91 MB in momenti diversi), **CPU vicino a zero** (tra 0,00 % e 0,03 % a riposo).
 - Log breve, che si ruota da solo: `%LocalAppData%\VivaldiWSMod\logs\ws-mod.log`.
@@ -172,13 +173,14 @@ Gli `.exe` **non sono firmati digitalmente**, quindi Windows SmartScreen o un an
 
 ### Cosa NON è stato testato (onestà)
 
-- Testato su Windows 11 con Vivaldi Standalone 8.1.x e 8.2.x. Altre versioni di Vivaldi e le installazioni "normali" (non Standalone) non sono state provate di recente: se Vivaldi cambia la struttura interna di `window.html` o del pannello, la mod potrebbe non funzionare.
+- Testato su Windows 11 con Vivaldi Standalone 8.1.x, 8.2.x e 8.3.x (lo spostamento delle tab con la v1.2.2 è stato provato solo su una copia di 8.3.4191.30). Altre versioni di Vivaldi e le installazioni "normali" (non Standalone) non sono state provate di recente: se Vivaldi cambia la struttura interna di `window.html` o del pannello, la mod potrebbe non funzionare.
 - La rilevazione della lingua dall'interfaccia di Vivaldi è stata verificata con Vivaldi avviato in inglese e in italiano (lingua da riga di comando e impostazione salvata) su un profilo di prova; l'impostazione esatta usata dal tuo Vivaldi non è stata ispezionata.
-- Il ripristino dopo un **aggiornamento reale** di Vivaldi è stato verificato con una simulazione (cartella versione nuova, file scritto a più riprese e bloccato) e poi osservato dal vivo una volta, il 23/10/2026 (Vivaldi Standalone 8.2.4133.89 → 8.2.4133.94, con la correzione della v1.2.1): la mod è tornata da sola. È una sola osservazione, non una garanzia per ogni aggiornamento futuro.
+- Il ripristino dopo un **aggiornamento reale** di Vivaldi è stato verificato con una simulazione (cartella versione nuova, file scritto a più riprese e bloccato) e poi osservato dal vivo su aggiornamenti reali, secondo il log della Mod: 23/10/2026 (8.2.4133.89 → 8.2.4133.94), 05/11/2026 (verso 8.3.4191.26) e 06/11/2026 (verso 8.3.4191.30). La Mod è tornata da sola ogni volta. Sono tre osservazioni, non una garanzia per ogni aggiornamento futuro.
 - Esistono solo i menu in inglese e in italiano. Le funzioni dipendono da dettagli interni di Vivaldi (non documentati): usa a tuo rischio.
 
 ### Changelog
 
+- **v1.2.2** — Corregge lo spostamento delle tab su Vivaldi 8.3: scegliendo un Workspace nel menu della Mod non succedeva niente, perché Vivaldi 8.3 ignora il vecchio modo di assegnare una tab a un Workspace (rispondeva ok ma non cambiava nulla). Ora la Mod usa la stessa chiamata interna del menu nativo Move to Workspace di Vivaldi; il vecchio metodo resta solo come ripiego. Provato su una copia di prova di Vivaldi 8.3.4191.30: 1, 2 e 3 tab (anche non consecutive), verso Workspace con e senza tab, e cambio lingua. Il vecchio metodo su Vivaldi 8.2 non è stato riprovato con questa versione. Inoltre: il watcher in background ora viene riconosciuto tramite un file di blocco (`watcher.lock`) e non leggendo la sua riga di comando, quindi il controllo ogni 30 minuti non avvia più un PowerShell inutile quando il watcher ha permessi diversi (per esempio avviato come amministratore) e un secondo watcher non può mai partire. Il watcher parte senza nessuna finestra di console (`conhost.exe --headless`) e sempre con i tuoi permessi normali di utente; se l'installer è lanciato come amministratore, avvisa soltanto e avvia comunque il watcher con permessi normali (tramite l'attività pianificata). `Install.bat`/`Install.exe` (e i disinstallatori) ora si chiudono da soli 6 secondi dopo un'esecuzione riuscita invece di aspettare un tasto; in caso di errore restano aperti per leggere il messaggio.
 - **v1.2.1** — Il watcher in background ora parte *staccato* dal programma che lo avvia (tramite Windows/WMI) e un'attività pianificata nascosta dell'utente (VivaldiWSMod-Keepalive, all'accesso e ogni 30 minuti) lo riaccende se si ferma. Il ripristino automatico dopo un aggiornamento reale di Vivaldi è stato osservato dal vivo (8.2.4133.89 → 8.2.4133.94, 23/10/2026).
 - **v1.2.0** — Menu e installer in inglese e italiano, cambio lingua.
 - **v1.1.0** — Prima versione pubblica.

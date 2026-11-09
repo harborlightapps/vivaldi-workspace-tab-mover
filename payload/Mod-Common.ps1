@@ -224,17 +224,95 @@ function Add-ModRoot {
 }
 
 # --- Processo watcher in background ---
+# Il watcher e' VIVO se tiene il blocco su file watcher.lock (vale con qualsiasi livello di permessi) oppure
+# il mutex di istanza unica (lo tengono anche i watcher delle versioni precedenti, che non hanno il file).
+# Ritorna 'lock', 'mutex' oppure $null (nessun watcher).
+function Get-ModDaemonMutexName {
+    $md5 = [Security.Cryptography.MD5]::Create()
+    $hash = [BitConverter]::ToString($md5.ComputeHash([Text.Encoding]::UTF8.GetBytes((Get-ModRoot).ToLowerInvariant()))).Replace('-', '').Substring(0, 12)
+    return "Local\VivaldiWSMod-Daemon-$hash"
+}
+
+function Test-ModDaemonAlive {
+    $lock = Join-Path (Get-ModRoot) 'watcher.lock'
+    if (Test-Path -LiteralPath $lock) {
+        try {
+            $fs = [IO.File]::Open($lock, [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)
+            $fs.Close()
+        } catch [IO.IOException] { return 'lock' } catch { }
+    }
+    try {
+        $m = [Threading.Mutex]::OpenExisting((Get-ModDaemonMutexName))
+        $m.Dispose()
+        return 'mutex'
+    } catch [Threading.WaitHandleCannotBeOpenedException] {
+    } catch [UnauthorizedAccessException] { return 'mutex' } catch { }
+    return $null
+}
+
+# Aspetta (al massimo $Seconds) che il watcher risulti vivo. Ritorna $true/$false.
+function Wait-ModDaemonAlive {
+    param([int]$Seconds = 15)
+    for ($i = 0; $i -lt ($Seconds * 2); $i++) {
+        if (Test-ModDaemonAlive) { return $true }
+        Start-Sleep -Milliseconds 500
+    }
+    return [bool](Test-ModDaemonAlive)
+}
+
+# Il PID scritto dal watcher (watcher.pid), solo se il watcher e' davvero vivo.
+function Get-ModDaemonPidFromFile {
+    $f = Join-Path (Get-ModRoot) 'watcher.pid'
+    if (-not (Test-Path -LiteralPath $f)) { return $null }
+    try {
+        $id = [int](([IO.File]::ReadAllText($f)).Trim())
+        $p = Get-Process -Id $id -ErrorAction Stop
+        if ($p.ProcessName -match '^(powershell|pwsh)$') { return $id }
+    } catch { }
+    return $null
+}
+
+# Ferma il watcher (per PID, mai per nome). Un watcher avviato con permessi di amministratore NON si puo'
+# fermare da un processo normale: in quel caso resta vivo (Test-ModDaemonAlive lo dice) e non si avvia mai
+# un secondo watcher. Ritorna il numero di processi fermati.
 function Stop-ModDaemon {
     $stopped = 0
+    $ids = @{}
     Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
         Where-Object { $_.CommandLine -match 'Watcher-Daemon\.ps1' -and $_.CommandLine -like ('*' + (Get-ModRoot) + '*') -and $_.ProcessId -ne $PID } |
-        ForEach-Object { try { Stop-Process -Id $_.ProcessId -Force -ErrorAction Stop; $stopped++ } catch { } }
+        ForEach-Object { $ids[[int]$_.ProcessId] = $true }
+    $fromFile = Get-ModDaemonPidFromFile
+    if ($fromFile -and $fromFile -ne $PID) { $ids[[int]$fromFile] = $true }
+    foreach ($id in $ids.Keys) {
+        try { Stop-Process -Id $id -Force -ErrorAction Stop; $stopped++ } catch { }
+    }
+    # lascia a Windows il tempo di liberare il blocco
+    for ($i = 0; $i -lt 10 -and (Test-ModDaemonAlive); $i++) { Start-Sleep -Milliseconds 300 }
     return $stopped
 }
 
 function Get-ModDaemonProcesses {
     @(Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
         Where-Object { $_.CommandLine -match 'Watcher-Daemon\.ps1' -and $_.CommandLine -like ('*' + (Get-ModRoot) + '*') -and $_.ProcessId -ne $PID })
+}
+
+function Test-IsAdministrator {
+    try {
+        return ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    } catch { return $false }
+}
+
+# Avvia il watcher tramite l'attivita' pianificata dell'utente: parte con i permessi NORMALI dell'utente
+# (RunLevel Limited) anche se chi la richiama e' un processo con permessi di amministratore.
+function Start-ModDaemonViaTask {
+    try {
+        $name = Get-ModTaskName
+        if (Get-ScheduledTask -TaskName $name -ErrorAction Stop) {
+            Start-ScheduledTask -TaskName $name -ErrorAction Stop
+            return 'task'
+        }
+    } catch { }
+    return $null
 }
 
 # --- Avvio staccato del watcher e attivita' pianificata di "riaccensione" (RICHIESTA-004, correzione 23/10/2026) ---

@@ -1,7 +1,7 @@
 #requires -Version 5.1
 <#
 .SYNOPSIS
-    Installer / Installatore - Vivaldi Workspace Tab Mover (v1.2.1).
+    Installer / Installatore - Vivaldi Workspace Tab Mover (v1.2.2).
 .DESCRIPTION
     Modulo 3. Punto di ingresso a click singolo:
       - Se il mod non e' presente/funzionante nella versione Vivaldi corrente, lo installa.
@@ -47,7 +47,10 @@ param(
 
     # Ogni quanti minuti l'attivita' pianificata controlla che il watcher sia acceso (default 30; i test usano 1).
     [ValidateRange(1, 1440)]
-    [int]$KeepaliveIntervalMinutes = 30
+    [int]$KeepaliveIntervalMinutes = 30,
+
+    # Solo per i test automatici: si comporta come se l'installer fosse stato lanciato come amministratore.
+    [switch]$TestAssumeAdmin
 )
 
 $ErrorActionPreference = 'Stop'
@@ -138,6 +141,14 @@ try {
     Write-Host '  Vivaldi Workspace Tab Mover - Installer / Installatore'
     Write-Host '============================================================'
     Write-Host ''
+
+    # Se e' stato lanciato come amministratore: si avvisa e si continua (un Vivaldi in "Program Files" puo'
+    # richiedere permessi alti per scrivere window.html), ma il watcher parte SEMPRE con permessi normali.
+    $runningAsAdmin = ((Test-IsAdministrator) -or $TestAssumeAdmin)
+    if ($runningAsAdmin) {
+        Write-Host (L "NOTE: this installer is running as administrator. That is only needed if Vivaldi is installed in a protected folder (for example Program Files); otherwise double-click it normally. The mod files are written with these rights, but the background watcher is always started with your normal user rights (through the scheduled task), never as administrator." "NOTA: questo installer e' stato lanciato come amministratore. Serve solo se Vivaldi e' installato in una cartella protetta (per esempio Program Files); altrimenti avvialo con un doppio clic normale. I file della mod vengono scritti con questi permessi, ma il watcher in background parte SEMPRE con i tuoi permessi normali di utente (tramite l'attivita' pianificata), mai come amministratore.") -ForegroundColor Yellow
+        Write-Host ''
+    }
 
     # 1a) percorso della cartella Application
     $pathProblem = $null
@@ -381,22 +392,31 @@ try {
             Write-Step ((L "WARNING: scheduled task not created: " "ATTENZIONE: attivita' pianificata non creata: ") + $_.Exception.Message)
         }
 
-        # Riavvia il watcher cosi' usa subito gli script appena copiati; parte STACCATO (tramite Windows),
-        # non come figlio di questo programma.
+        # Riavvia il watcher cosi' usa subito gli script appena copiati. Ordine che non lascia mai due
+        # watcher insieme: prima si ferma quello attuale (per PID); se non si riesce a fermarlo (per
+        # esempio perche' e' stato avviato con permessi di amministratore) NON se ne avvia un altro.
         [void](Stop-ModDaemon)
-        Start-Sleep -Milliseconds 500
-        $how = Start-ModDaemonDetached -VbsPath $startVbs
-        $up = $false
-        for ($i = 0; $i -lt 30; $i++) {
-            Start-Sleep -Milliseconds 500
-            if (@(Get-ModDaemonProcesses).Count -gt 0) { $up = $true; break }
-        }
-        if ($up) {
-            Write-Step (L "OK - background watcher active, started detached ($how); it restarts by itself at every login and every $KeepaliveIntervalMinutes min if it ever stops." "OK - watcher in background attivo, avviato staccato ($how); si riavvia da solo a ogni accesso e ogni $KeepaliveIntervalMinutes min se si dovesse spegnere.")
+        $aliveBefore = Test-ModDaemonAlive
+        if ($aliveBefore) {
+            Write-Step (L "NOTE: a background watcher is already running and could not be stopped from here (it was probably started with administrator rights). It keeps working and no second one is started; it stops by itself at the next Windows restart, and the scheduled task then starts a normal one." "NOTA: un watcher in background e' gia' in esecuzione e non si riesce a fermarlo da qui (probabilmente e' stato avviato con permessi di amministratore). Continua a funzionare e non ne viene avviato un secondo; si ferma da solo al prossimo riavvio di Windows e allora l'attivita' pianificata ne avvia uno normale.")
         } else {
-            Write-Step (L "WARNING: watcher did not start now; the scheduled task or the next login will start it." "ATTENZIONE: watcher non partito ora; lo avviera' l'attivita' pianificata o il prossimo accesso.")
+            # L'avvio passa dall'attivita' pianificata dell'utente: il watcher parte con i permessi NORMALI
+            # dell'utente, anche se questo installer e' stato lanciato come amministratore.
+            $how = Start-ModDaemonViaTask
+            $up = $false
+            if ($how) { $up = Wait-ModDaemonAlive -Seconds 15 }
+            if (-not $up -and -not $runningAsAdmin) {
+                $how = Start-ModDaemonDetached -VbsPath $startVbs      # parte staccato (tramite Windows), con permessi normali
+                $up = Wait-ModDaemonAlive -Seconds 15
+            }
+            if ($up) {
+                Write-Step (L "OK - background watcher active, started with your normal user rights ($how); it restarts by itself at every login and every $KeepaliveIntervalMinutes min if it ever stops." "OK - watcher in background attivo, avviato con i tuoi permessi normali di utente ($how); si riavvia da solo a ogni accesso e ogni $KeepaliveIntervalMinutes min se si dovesse spegnere.")
+            } else {
+                Write-Step (L "WARNING: watcher did not start now; the scheduled task or the next login will start it (always with normal user rights)." "ATTENZIONE: watcher non partito ora; lo avviera' l'attivita' pianificata o il prossimo accesso (sempre con permessi normali di utente).")
+            }
         }
-    }    Write-Host ""
+    }
+    Write-Host ""
     Write-Host (L "=== Installation completed successfully ===" "=== Installazione completata con successo ===") -ForegroundColor Green
     Write-Host (L "Language: $chosenLang. You can change it from the mod's menu (Shift+right-click on a tab) at any time." "Lingua: $chosenLang. Puoi cambiarla in qualsiasi momento dal menu della mod (Maiusc + tasto destro su una tab).")
     exit 0

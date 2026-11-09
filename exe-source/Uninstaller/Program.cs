@@ -1,6 +1,6 @@
 // Uninstall.exe - thin double-click launcher / lanciatore sottile a doppio click.
 //
-// Vivaldi Workspace Tab Mover v1.2.1.
+// Vivaldi Workspace Tab Mover v1.2.2.
 //
 // Launches Uninstall-Mod.ps1 (in the SAME folder as this .exe) with Windows PowerShell and
 // waits for it. ALL the questions (folder path, language, confirmation) are asked
@@ -67,9 +67,18 @@ namespace VivaldiWsMod.Uninstaller
             return Pause(exitCode);
         }
 
+        // Success: the window closes by itself after a few seconds (no black window left open).
+        // Error: it stays open so the message can be read.
+        // Successo: la finestra si chiude da sola dopo qualche secondo. Errore: resta aperta per leggere il messaggio.
         private static int Pause(int exitCode)
         {
             Console.WriteLine();
+            if (exitCode == 0)
+            {
+                Console.WriteLine("This window closes by itself in 6 seconds. / Questa finestra si chiude da sola tra 6 secondi.");
+                try { System.Threading.Thread.Sleep(6000); } catch (Exception) { }
+                return exitCode;
+            }
             Console.Write("Press Enter to close / Premi Invio per chiudere...");
             try { Console.ReadLine(); } catch (Exception) { }
             return exitCode;

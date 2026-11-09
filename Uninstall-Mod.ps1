@@ -1,7 +1,7 @@
 #requires -Version 5.1
 <#
 .SYNOPSIS
-    Uninstaller / Disinstallatore - Vivaldi Workspace Tab Mover (v1.2.1).
+    Uninstaller / Disinstallatore - Vivaldi Workspace Tab Mover (v1.2.2).
 .DESCRIPTION
     Punto di uscita a click singolo (domande bilingui):
       - Ferma il watcher in background (Watcher-Daemon.ps1) e rimuove la voce
@@ -111,6 +111,9 @@ try {
     Write-Step (L "Scheduled task removed: $taskRemoved." "Attivita' pianificata rimossa: $taskRemoved.")
     $stopped = Stop-ModDaemon
     Write-Step (L "Background watcher stopped ($stopped process(es))." "Watcher in background fermato ($stopped processi).")
+    if (Test-ModDaemonAlive) {
+        Write-Step (L "WARNING: a background watcher is still running and could not be stopped from here (it was probably started with administrator rights). The mod is removed anyway, so it has nothing to repair; it stops by itself at the next Windows restart (or run this uninstaller as administrator)." "ATTENZIONE: un watcher in background e' ancora in esecuzione e non si riesce a fermarlo da qui (probabilmente e' stato avviato con permessi di amministratore). La mod viene comunque rimossa, quindi non ha niente da riparare; si ferma da solo al prossimo riavvio di Windows (oppure lancia questo disinstallatore come amministratore).")
+    }
     try {
         $runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
         if (Get-ItemProperty -Path $runKey -Name 'VivaldiWSMod' -ErrorAction SilentlyContinue) {

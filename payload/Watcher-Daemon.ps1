@@ -44,7 +44,20 @@ $md5 = [Security.Cryptography.MD5]::Create()
 $hash = [BitConverter]::ToString($md5.ComputeHash([Text.Encoding]::UTF8.GetBytes($ModRoot.ToLowerInvariant()))).Replace('-', '').Substring(0, 12)
 $createdNew = $false
 $mutex = New-Object Threading.Mutex($true, "Local\VivaldiWSMod-Daemon-$hash", [ref]$createdNew)
-if (-not $createdNew) { exit 0 }
+if (-not $createdNew) { exit 0 }   # c'e' gia' un watcher (anche uno vecchio, di una versione precedente, che tiene solo questo mutex)
+
+# --- blocco su file: watcher.lock ---
+# Lo tiene aperto in esclusiva per tutta la vita del processo. Start-Daemon.vbs prova ad aprirlo: se e'
+# bloccato il watcher e' vivo (anche se Windows non mostra la sua riga di comando, per esempio quando e'
+# stato avviato con permessi di amministratore); se Windows lo chiude, il blocco sparisce da solo.
+$lockPath = Join-Path $ModRoot 'watcher.lock'
+$pidPath  = Join-Path $ModRoot 'watcher.pid'
+$lockStream = $null
+try {
+    if (-not (Test-Path -LiteralPath $ModRoot)) { New-Item -ItemType Directory -Path $ModRoot -Force | Out-Null }
+    $lockStream = [IO.File]::Open($lockPath, [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)
+} catch { exit 0 }   # un altro watcher tiene gia' il blocco
+try { [IO.File]::WriteAllText($pidPath, [string]$PID) } catch { }
 
 try { (Get-Process -Id $PID).PriorityClass = [Diagnostics.ProcessPriorityClass]::BelowNormal } catch { }
 
@@ -94,6 +107,7 @@ Write-ModLog ("Watcher avviato (PID " + $PID + ")")
 Ensure-Watchers
 foreach ($root in (Get-ModRoots)) { [void](Check-Root -Root $root) }   # riparazione immediata all'avvio
 
+try {
 while ($true) {
     try {
         $now = Get-Date
@@ -121,4 +135,9 @@ while ($true) {
         Write-ModLog ("ERRORE imprevisto nel ciclo: " + $_.Exception.Message)
         Start-Sleep -Seconds 60
     }
+}
+} finally {
+    # Uscita ordinata (se il processo viene terminato di forza, e' Windows a liberare il blocco).
+    try { $lockStream.Close() } catch { }
+    try { Remove-Item -LiteralPath $pidPath -Force -ErrorAction SilentlyContinue } catch { }
 }
